@@ -11,7 +11,8 @@ const aiRoutes = require('./routes/ai');
 
 const app = express();
 
-app.use(express.static("frontend/dist"));
+app.use(express.static("./frontend/dist"));
+
 
 // Middleware
 app.use(cors({
@@ -32,6 +33,14 @@ app.use('/api/auth', authRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
+
+const path = require("path");
+
+app.use(express.static(path.join(__dirname, "../frontend")));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/index.html"));
+});
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
