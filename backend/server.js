@@ -11,6 +11,8 @@ const aiRoutes = require('./routes/ai');
 
 const app = express();
 
+app.use(express.static("frontend/dist"));
+
 // Middleware
 app.use(cors({
   origin: ['http://localhost:3000', 'http://localhost:5173'],
