@@ -3,13 +3,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const SearchIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
   </svg>
 );
 
 const CloseIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
   </svg>
 );
@@ -22,19 +22,14 @@ export default function Navbar({ onAuthOpen, onSearch }) {
   const inputRef = useRef(null);
   const loc = useLocation();
 
-  // 展開時自動 focus
   useEffect(() => {
     if (searchOpen) inputRef.current?.focus();
   }, [searchOpen]);
 
   const handleToggleSearch = () => {
     if (searchOpen) {
-      // 關閉時清空搜尋
       setSearchOpen(false);
-      if (searchVal) {
-        setSearchVal('');
-        onSearch?.('');
-      }
+      if (searchVal) { setSearchVal(''); onSearch?.(''); }
     } else {
       setSearchOpen(true);
     }
@@ -45,7 +40,7 @@ export default function Navbar({ onAuthOpen, onSearch }) {
     onSearch?.(searchVal);
   };
 
-  const handleSearchKeyDown = (e) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
       setSearchOpen(false);
       setSearchVal('');
@@ -53,12 +48,13 @@ export default function Navbar({ onAuthOpen, onSearch }) {
     }
   };
 
-  // 點外面關閉 user dropdown
   useEffect(() => {
     if (!menuOpen) return;
-    const handler = () => setMenuOpen(false);
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
+    const h = (e) => {
+      if (!e.target.closest('.user-menu')) setMenuOpen(false);
+    };
+    document.addEventListener('click', h);
+    return () => document.removeEventListener('click', h);
   }, [menuOpen]);
 
   return (
@@ -67,7 +63,7 @@ export default function Navbar({ onAuthOpen, onSearch }) {
 
       <div className="nav-links">
 
-        {/* 搜尋欄 */}
+        {/* 搜尋 */}
         <div className="nav-search">
           <form
             onSubmit={handleSearchSubmit}
@@ -79,19 +75,14 @@ export default function Navbar({ onAuthOpen, onSearch }) {
               placeholder="搜尋語錄、作者、標籤..."
               value={searchVal}
               onChange={e => setSearchVal(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
+              onKeyDown={handleKeyDown}
             />
           </form>
-          <button
-            className="nav-icon-btn"
-            onClick={handleToggleSearch}
-            title={searchOpen ? '關閉搜尋' : '搜尋'}
-          >
+          <button className="nav-icon-btn" onClick={handleToggleSearch} title={searchOpen ? '關閉' : '搜尋'}>
             {searchOpen ? <CloseIcon /> : <SearchIcon />}
           </button>
         </div>
 
-        {/* 頁面連結 */}
         {!searchOpen && (
           <>
             <Link to="/" className={loc.pathname === '/' ? 'active' : ''}>首頁</Link>
@@ -101,10 +92,9 @@ export default function Navbar({ onAuthOpen, onSearch }) {
           </>
         )}
 
-        {/* 用戶 */}
         {!searchOpen && (
           user ? (
-            <div className="user-menu" onClick={e => e.stopPropagation()}>
+            <div className="user-menu">
               <div className="user-avatar" onClick={() => setMenuOpen(o => !o)}>
                 {user.avatar
                   ? <img src={user.avatar} alt={user.username} />
@@ -112,10 +102,37 @@ export default function Navbar({ onAuthOpen, onSearch }) {
               </div>
               {menuOpen && (
                 <div className="user-dropdown">
-                  <div className="user-dropdown-item" style={{ borderBottom: '1px solid var(--border)', pointerEvents: 'none', opacity: 0.5 }}>
+                  <div className="user-dropdown-item" style={{
+                    borderBottom: '1px solid var(--border)',
+                    pointerEvents: 'none', opacity: 0.5,
+                    textTransform: 'none', letterSpacing: 0,
+                    fontFamily: "'Noto Serif TC', serif",
+                    fontSize: '0.8rem',
+                  }}>
                     {user.username}
                   </div>
-                  <button className="user-dropdown-item danger" onClick={() => { setMenuOpen(false); logout(); }}>登出</button>
+                  <Link
+                    to="/profile"
+                    className="user-dropdown-item"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    個人資料
+                  </Link>
+                  {user.role === 'admin' && (
+                    <Link
+                      to="/admin"
+                      className="user-dropdown-item"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      管理後台
+                    </Link>
+                  )}
+                  <button
+                    className="user-dropdown-item danger"
+                    onClick={() => { setMenuOpen(false); logout(); }}
+                  >
+                    登出
+                  </button>
                 </div>
               )}
             </div>

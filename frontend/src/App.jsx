@@ -6,6 +6,7 @@ import Navbar from './components/Navbar';
 import AuthModal from './components/AuthModal';
 import HomePage from './pages/HomePage';
 import AdminPage from './pages/AdminPage';
+import ProfilePage from './pages/ProfilePage';
 
 function AppContent() {
   const [showAuth, setShowAuth] = useState(false);
@@ -13,20 +14,10 @@ function AppContent() {
 
   return (
     <>
-      <Navbar
-        onAuthOpen={() => setShowAuth(true)}
-        onSearch={setSearch}
-      />
+      <Navbar onAuthOpen={() => setShowAuth(true)} onSearch={setSearch} />
       <Routes>
-        <Route
-          path="/"
-          element={
-            <HomePage
-              onAuthRequired={() => setShowAuth(true)}
-              search={search}
-            />
-          }
-        />
+        <Route path="/" element={<HomePage onAuthRequired={() => setShowAuth(true)} search={search} />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Routes>
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
