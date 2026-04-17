@@ -147,3 +147,28 @@ router.get('/:id', async (req, res) => {
 });
 
 module.exports = router;
+
+// Edit own quote (owner only, resets to pending if approved)
+router.patch('/:id', protect, async (req, res) => {
+  try {
+    const quote = await Quote.findById(req.params.id);
+    if (!quote) return res.status(404).json({ message: '語錄不存在' });
+    if (String(quote.submittedBy) !== String(req.user._id)) {
+      return res.status(403).json({ message: '只有發布者可以編輯' });
+    }
+
+    const { content, author, tags } = req.body;
+    if (content) quote.content = content;
+    if (author !== undefined) quote.author = author;
+    if (tags !== undefined) quote.tags = tags;
+
+    // 若已通過，編輯後退回審核
+    if (quote.status === 'approved') quote.status = 'pending';
+    quote.updatedAt = Date.now();
+    await quote.save();
+
+    res.json({ quote, message: quote.status === 'pending' ? '已更新，重新進入審核' : '已更新' });
+  } catch (err) {
+    res.status(500).json({ message: '伺服器錯誤' });
+  }
+});
