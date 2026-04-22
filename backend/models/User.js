@@ -6,7 +6,8 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   password: { type: String },
   googleId: { type: String },
-  avatar: { type: String, default: '' },
+  avatar: { type: String, default: '' },       // emoji 或 URL
+  avatarEmoji: { type: String, default: '' },   // 選擇的 emoji 頭像
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   savedQuotes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Quote' }],
   createdAt: { type: Date, default: Date.now }

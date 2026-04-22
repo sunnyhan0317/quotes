@@ -4,7 +4,22 @@ const commentSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   username: { type: String, required: true },
   avatar: { type: String },
+  avatarEmoji: { type: String },
   text: { type: String, required: true, maxlength: 500 },
+  edited: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
+
+// 辯論留言：支持正方/反方立場
+const debateCommentSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  username: { type: String, required: true },
+  avatar: { type: String },
+  avatarEmoji: { type: String },
+  side: { type: String, enum: ['for', 'against'], required: true },
+  text: { type: String, required: true, maxlength: 500 },
+  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  edited: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -19,6 +34,7 @@ const quoteSchema = new mongoose.Schema({
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   saves: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   comments: [commentSchema],
+  debateComments: [debateCommentSchema],
   bgColor: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
