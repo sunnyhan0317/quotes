@@ -1,127 +1,225 @@
-# 語境（Yu境）— 語錄網站
+# Quotes Hub
 
-一個功能完整的語錄分享平台，支援用戶投稿、AI 生成語錄、管理員審核機制。
+一個全端名言管理平台，專注於提供結構化的語錄瀏覽、收藏與個人化管理體驗。此專案結合現代前後端技術，實作完整的使用者驗證流程、資料持久化與安全機制，適合作為全端應用開發的實務範例。
+
+線上預覽（Live Demo）：
+https://quoteshub.onrender.com/
 
 ---
 
-## 功能特色
+## 專案目標
 
-### 前台（一般用戶）
-- **語錄牆**：瀑布式卡片展示，支援搜尋、標籤篩選、排序
-- **語錄卡**：每則語錄有標籤、按讚、收藏、留言功能
-- **AI 語錄生成器**：輸入主題/情緒/風格，讓 AI 創作並直接加入語錄庫
-- **投稿語錄**：用戶可提交自己的語錄，等待管理員審核
-- **用戶認證**：支援電子郵件註冊/登入 + Google OAuth
+Quotes Hub 的核心目標不只是展示語錄內容，而是建立一個具備以下能力的應用系統：
 
-### 後台（管理員）
-- **儀表板**：總覽統計（語錄數、用戶數、待審核數）
-- **語錄審核**：通過 / 拒絕 / 永久刪除投稿內容
-- **用戶管理**：查看所有用戶，設定管理員權限
-- 路徑：`/admin`
+* 提供穩定且可擴展的 API 架構
+* 實作安全的使用者驗證與授權機制
+* 支援使用者個人化資料（收藏、管理）
+* 建立清晰的前後端分離架構
+* 作為可部署的實際產品，而非僅限於學習用途
+
+---
+
+## 功能說明（詳細）
+
+### 使用者系統（Authentication & Authorization）
+
+* 使用者註冊與登入（Email / Password）
+* JWT Token 發行與驗證機制
+* Token 儲存與自動附加於 API 請求（Authorization Header）
+* Google OAuth 登入整合（快速登入流程）
+* 登出機制（前端 Token 清除）
+* 基本權限控管（僅登入用戶可操作收藏功能）
+
+---
+
+### 語錄瀏覽系統（Quotes Browsing）
+
+* 從後端 API 動態取得語錄資料
+* 支援隨機語錄顯示（Random Quote）
+* 可擴展為：
+
+  * 分類（Category-based filtering）
+  * 作者（Author filtering）
+  * 關鍵字搜尋（Keyword search）
+* 前端非同步資料載入（避免阻塞 UI）
+* 錯誤處理與 fallback UI（例如 API 失敗時提示）
+
+---
+
+### 收藏系統（Favorites Management）
+
+* 使用者可將語錄加入收藏
+* 防止重複收藏（透過後端驗證）
+* 取得個人收藏列表（User-specific data isolation）
+* 刪除收藏語錄
+* 收藏狀態同步（前端 UI 與後端資料一致）
+
+---
+
+### API 與資料流設計
+
+* 前端透過 Axios 呼叫 RESTful API
+* API 分層設計：
+
+  * `/api/auth`：身份驗證
+  * `/api/quotes`：語錄資料
+  * `/api/favorites`：收藏管理
+* 使用 middleware 驗證 JWT Token
+* 統一錯誤處理（Error Handling Middleware）
+* JSON 格式資料傳輸
+
+---
+
+### 安全機制（Security Features）
+
+* bcrypt 密碼雜湊（避免明文儲存）
+* JWT 驗證避免 session 劫持問題
+* Rate Limiting（防止暴力攻擊與濫用）
+* 環境變數管理敏感資訊（.env）
+* 基本輸入驗證（避免惡意請求）
+* CORS 設定（控制跨來源請求）
+
+---
+
+### 使用者體驗（UX Enhancements）
+
+* 即時 UI 更新（收藏/取消收藏不需重新整理）
+* Loading 狀態提示（提升互動回饋）
+* 錯誤提示訊息（登入失敗、API 錯誤）
+* 簡潔直觀的操作流程
+* 響應式設計（可擴展至行動裝置）
+
+---
+
+### 系統穩定性與可維護性
+
+* 模組化後端架構（routes / controllers / models）
+* 清楚的資料責任分離（Separation of Concerns）
+* 可擴展 API 設計（方便新增功能）
+* 前後端獨立開發與部署
 
 ---
 
 ## 技術架構
 
-| 層級 | 技術 |
-|------|------|
-| 前端 | React 18 + Vite + React Router v6 |
-| 後端 | Node.js + Express |
-| 資料庫 | MongoDB Atlas（Mongoose） |
-| AI | Anthropic Claude API |
-| 認證 | JWT + Google OAuth 2.0 |
+### 前端（Client）
+
+* React（SPA 架構）
+* Axios（HTTP Client）
+* Hooks / Context（狀態管理）
+
+### 後端（Server）
+
+* Node.js
+* Express
+* MongoDB
+* Mongoose
+
+### 驗證與安全
+
+* JWT（JSON Web Token）
+* bcrypt
+* Google OAuth 2.0
 
 ---
 
-## 快速開始
+## 系統設計重點
 
-### 1. 安裝依賴
+### 1. RESTful API 設計
 
-```bash
-# 後端
-cd backend && npm install
+資源導向設計，將使用者、語錄與收藏拆分為獨立 API，提高可讀性與維護性。
 
-# 前端
-cd frontend && npm install
+### 2. 無狀態驗證
+
+使用 JWT 進行驗證，使系統更易於水平擴展（Horizontal Scaling）。
+
+### 3. 模組化架構
+
+將後端邏輯拆分，避免單一檔案過度複雜。
+
+### 4. 資料一致性
+
+透過後端驗證機制確保收藏資料不重複且正確。
+
+---
+
+## 安裝與執行
+
+### 1. 下載專案
+
+```bash id="2f9n9m"
+git clone https://github.com/your-username/quotes-app.git
+cd quotes-app
 ```
 
-### 2. 設定環境變數
+### 2. 安裝依賴
 
-#### `backend/.env`
+```bash id="z0yy3m"
+npm run install:all
 ```
-MONGODB_URI=mongodb+srv://sunnyhan:...@cluster0.1fp2tbz.mongodb.net/quotes?retryWrites=true&w=majority&appName=Cluster0
-JWT_SECRET=your_jwt_secret_here
-ANTHROPIC_API_KEY=sk-ant-...        ← 從 console.anthropic.com 取得
-GOOGLE_CLIENT_ID=...apps.googleusercontent.com  ← 選填，Google OAuth 用
+
+### 3. 設定環境變數
+
+```env id="w6y6kp"
 PORT=5000
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
-#### `frontend/.env`
-```
-VITE_GOOGLE_CLIENT_ID=...apps.googleusercontent.com  ← 與後端相同
-```
+### 4. 啟動開發模式
 
-### 3. 啟動專案
-
-開兩個終端機分別執行：
-
-```bash
-# 終端 1：後端
-cd backend && npm start
-
-# 終端 2：前端
-cd frontend && npm run dev
+```bash id="v5cs3z"
+npm run dev
 ```
 
-前端：http://localhost:3000  
-後端 API：http://localhost:5000/api
+### 5. 啟動正式環境
+
+```bash id="y8pp8n"
+npm start
+```
 
 ---
 
-## 取得 API 金鑰
+## 專案結構
 
-### Anthropic API Key（AI 語錄生成必須）
-1. 前往 https://console.anthropic.com
-2. 建立 API Key
-3. 貼入 `backend/.env` 的 `ANTHROPIC_API_KEY`
-
-### Google OAuth（選填）
-1. 前往 https://console.cloud.google.com
-2. 建立專案 → API & Services → OAuth 2.0 Client ID
-3. 設定授權來源：`http://localhost:3000`
-4. 設定重新導向 URI：`http://localhost:3000`
-5. 複製 Client ID 貼入 `backend/.env` 和 `frontend/.env`
-
----
-
-## 設定第一個管理員
-
-MongoDB Atlas 中手動更新用戶 role：
-
-```javascript
-// 在 MongoDB Atlas Data Explorer 或 mongosh 執行
-db.users.updateOne(
-  { email: "your_email@example.com" },
-  { $set: { role: "admin" } }
-)
+```id="h3t9xq"
+quotes-app/
+│
+├── backend/
+│   ├── controllers/
+│   ├── models/
+│   ├── routes/
+│   ├── middleware/
+│   └── server.js
+│
+├── frontend/
+│   ├── src/
+│   └── public/
+│
+├── package.json
 ```
 
-之後管理員可以在後台將其他用戶升為管理員。
+---
+
+## 部署
+
+https://quoteshub.onrender.com/
 
 ---
 
-## MongoDB 資料結構
+## 可擴展方向
 
-**Database**: `quotes`
+### 功能擴展
 
-**Collections**:
-- `users`：用戶資料（username, email, password hash, googleId, role, savedQuotes）
-- `quotes`：語錄（content, author, tags, source, status, likes, saves, comments）
+* 語錄分類 / 標籤系統
+* 搜尋與排序功能
+* 社群互動（留言、按讚）
+* 使用者個人頁面
 
----
+### 技術優化
 
-## 注意事項
-- AI 生成的語錄自動通過審核（status: approved）
-- 用戶投稿的語錄需要等待管理員審核（status: pending）
-- 請妥善保管 `.env` 檔案，不要上傳至 GitHub
-- 建議在 `.gitignore` 中加入 `.env`
+* TypeScript 重構
+* Redis 快取
+* Swagger API 文件
+* 單元測試與整合測試
