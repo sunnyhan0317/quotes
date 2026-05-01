@@ -86,6 +86,8 @@ export default function Navbar({ onAuthOpen, onSearch }) {
         {!searchOpen && (
           <>
             <Link to="/" className={loc.pathname === '/' ? 'active' : ''}>首頁</Link>
+            <Link to="/mood-map" className={loc.pathname === '/mood-map' ? 'active' : ''}>情緒</Link>
+            {user && <Link to="/dna" className={loc.pathname === '/dna' ? 'active' : ''}>DNA</Link>}
             {user?.role === 'admin' && (
               <Link to="/admin" className={loc.pathname.startsWith('/admin') ? 'active' : ''}>管理</Link>
             )}
@@ -96,9 +98,11 @@ export default function Navbar({ onAuthOpen, onSearch }) {
           user ? (
             <div className="user-menu">
               <div className="user-avatar" onClick={() => setMenuOpen(o => !o)}>
-                {user.avatar
-                  ? <img src={user.avatar} alt={user.username} />
-                  : user.username?.[0]?.toUpperCase()}
+                {user.avatarEmoji
+                  ? <span style={{ fontSize: '1rem', lineHeight: 1 }}>{user.avatarEmoji}</span>
+                  : user.avatar
+                    ? <img src={user.avatar} alt={user.username} />
+                    : user.username?.[0]?.toUpperCase()}
               </div>
               {menuOpen && (
                 <div className="user-dropdown">

@@ -4,12 +4,13 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
-const authRoutes  = require('./routes/auth');
-const quoteRoutes = require('./routes/quotes');
-const adminRoutes = require('./routes/admin');
-const aiRoutes    = require('./routes/ai');
-const userRoutes  = require('./routes/user');
-const diaryRoutes = require('./routes/diary');
+const authRoutes      = require('./routes/auth');
+const quoteRoutes     = require('./routes/quotes');
+const adminRoutes     = require('./routes/admin');
+const aiRoutes        = require('./routes/ai');
+const userRoutes      = require('./routes/user');
+const diaryRoutes     = require('./routes/diary');
+const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
 
@@ -25,15 +26,14 @@ app.use(express.json());
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
 app.use('/api/', limiter);
 
-app.use('/api/auth',   authRoutes);
-app.use('/api/quotes', quoteRoutes);
-app.use('/api/admin',  adminRoutes);
-app.use('/api/ai',     aiRoutes);
-app.use('/api/user',   userRoutes);
-app.use('/api/diary',  diaryRoutes);
+app.use('/api/auth',      authRoutes);
+app.use('/api/quotes',    quoteRoutes);
+app.use('/api/admin',     adminRoutes);
+app.use('/api/ai',        aiRoutes);
+app.use('/api/user',      userRoutes);
+app.use('/api/diary',     diaryRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
-
-//add
 const path = require("path");
 
 app.use(express.static(path.join(__dirname, "../frontend/dist")));
