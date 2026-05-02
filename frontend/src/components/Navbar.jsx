@@ -86,6 +86,10 @@ export default function Navbar({ onAuthOpen, onSearch }) {
         {!searchOpen && (
           <>
             <Link to="/" className={loc.pathname === '/' ? 'active' : ''}>首頁</Link>
+            <Link to="/mood-map" className={loc.pathname === '/mood-map' ? 'active' : ''}>情緒</Link>
+            {user && (
+              <Link to="/dna" className={loc.pathname === '/dna' ? 'active' : ''}>DNA</Link>
+            )}
             {user?.role === 'admin' && (
               <Link to="/admin" className={loc.pathname.startsWith('/admin') ? 'active' : ''}>管理</Link>
             )}
@@ -95,10 +99,14 @@ export default function Navbar({ onAuthOpen, onSearch }) {
         {!searchOpen && (
           user ? (
             <div className="user-menu">
+              {/* 顯示 emoji 頭像或文字頭像 */}
               <div className="user-avatar" onClick={() => setMenuOpen(o => !o)}>
-                {user.avatar
-                  ? <img src={user.avatar} alt={user.username} />
-                  : user.username?.[0]?.toUpperCase()}
+                {user.avatarEmoji
+                  ? <span style={{ fontSize: '1rem', lineHeight: 1 }}>{user.avatarEmoji}</span>
+                  : user.avatar
+                    ? <img src={user.avatar} alt={user.username} />
+                    : user.username?.[0]?.toUpperCase()
+                }
               </div>
               {menuOpen && (
                 <div className="user-dropdown">
@@ -111,19 +119,14 @@ export default function Navbar({ onAuthOpen, onSearch }) {
                   }}>
                     {user.username}
                   </div>
-                  <Link
-                    to="/profile"
-                    className="user-dropdown-item"
-                    onClick={() => setMenuOpen(false)}
-                  >
+                  <Link to="/profile" className="user-dropdown-item" onClick={() => setMenuOpen(false)}>
                     個人資料
                   </Link>
+                  <Link to="/diary" className="user-dropdown-item" onClick={() => setMenuOpen(false)}>
+                    我的日記
+                  </Link>
                   {user.role === 'admin' && (
-                    <Link
-                      to="/admin"
-                      className="user-dropdown-item"
-                      onClick={() => setMenuOpen(false)}
-                    >
+                    <Link to="/admin" className="user-dropdown-item" onClick={() => setMenuOpen(false)}>
                       管理後台
                     </Link>
                   )}

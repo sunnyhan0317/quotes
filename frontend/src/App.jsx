@@ -8,6 +8,8 @@ import HomePage from './pages/HomePage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
 import DiaryPage from './pages/DiaryPage';
+import DNAPage from './pages/DNAPage';
+import MoodMapPage from './pages/MoodMapPage';
 
 function AppContent() {
   const [showAuth, setShowAuth] = useState(false);
@@ -20,6 +22,8 @@ function AppContent() {
         <Route path="/" element={<HomePage onAuthRequired={() => setShowAuth(true)} search={search} />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/diary" element={<DiaryPage />} />
+        <Route path="/dna" element={<DNAPage />} />
+        <Route path="/mood-map" element={<MoodMapPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Routes>
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}

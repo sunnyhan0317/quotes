@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import PosterModal from './PosterModal';
 
 const HeartIcon = ({ filled }) => (
   <svg viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
@@ -18,9 +19,8 @@ const ChatIcon = () => (
   </svg>
 );
 
-/* 使用者頭像顯示 */
+/* 使用者頭像 */
 function UserAvatar({ username, avatar, avatarEmoji, size = 22 }) {
-  const display = avatarEmoji || (avatar ? null : username?.[0]?.toUpperCase());
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
@@ -29,12 +29,29 @@ function UserAvatar({ username, avatar, avatarEmoji, size = 22 }) {
       fontSize: avatarEmoji ? size * 0.6 : size * 0.42,
       fontFamily: "'Space Mono', monospace", color: 'rgba(232,228,220,0.5)',
     }}>
-      {avatarEmoji ? avatarEmoji : avatar ? <img src={avatar} alt={username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : display}
+      {avatarEmoji
+        ? avatarEmoji
+        : avatar
+          ? <img src={avatar} alt={username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : username?.[0]?.toUpperCase()}
     </div>
   );
 }
 
-/* 一般留言區 */
+/* 共用按鈕樣式 */
+const tinyBtn = {
+  background: 'none', border: '1px solid rgba(255,255,255,0.08)',
+  color: 'rgba(232,228,220,0.3)', cursor: 'pointer', borderRadius: '2px',
+  padding: '0.12rem 0.4rem', fontFamily: "'Space Mono', monospace",
+  fontSize: '0.5rem', flexShrink: 0, transition: 'color 0.15s',
+};
+const miniBtn = (color) => ({
+  background: 'none', border: `1px solid ${color}40`, color,
+  cursor: 'pointer', borderRadius: '2px', padding: '0.2rem 0.5rem',
+  fontFamily: "'Space Mono', monospace", fontSize: '0.55rem', flexShrink: 0,
+});
+
+/* ── 一般留言區 ── */
 function CommentsSection({ quoteId, comments: initial, onAuthRequired }) {
   const [comments, setComments] = useState(initial || []);
   const [text, setText] = useState('');
@@ -121,13 +138,13 @@ function CommentsSection({ quoteId, comments: initial, onAuthRequired }) {
   );
 }
 
-/* 辯論區 */
+/* ── 辯論區 ── */
 function DebateSection({ quoteId, debateComments: initial, onAuthRequired }) {
   const [items, setItems] = useState(initial || []);
   const [text, setText] = useState('');
   const [side, setSide] = useState('for');
   const [submitting, setSubmitting] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'for' | 'against'
+  const [activeFilter, setActiveFilter] = useState('all');
   const { user, API } = useAuth();
   const { addToast } = useToast();
 
@@ -168,7 +185,7 @@ function DebateSection({ quoteId, debateComments: initial, onAuthRequired }) {
   return (
     <div>
       {/* 計分板 */}
-      <div style={{ display: 'flex', gap: '0', marginBottom: '0.8rem', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ display: 'flex', marginBottom: '0.8rem', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ flex: 1, padding: '0.6rem', background: 'rgba(80,160,120,0.12)', textAlign: 'center' }}>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.55rem', color: 'rgba(80,200,120,0.7)', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>✓ 認同</div>
           <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '1.2rem', color: 'rgba(80,200,120,0.9)' }}>{forItems.length}</div>
@@ -185,7 +202,8 @@ function DebateSection({ quoteId, debateComments: initial, onAuthRequired }) {
         {[['all', '全部'], ['for', '✓ 認同'], ['against', '✗ 不認同']].map(([v, l]) => (
           <button key={v} onClick={() => setActiveFilter(v)} style={{
             fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', letterSpacing: '0.06em',
-            padding: '0.22rem 0.6rem', background: activeFilter === v ? 'rgba(200,169,110,0.2)' : 'none',
+            padding: '0.22rem 0.6rem',
+            background: activeFilter === v ? 'rgba(200,169,110,0.2)' : 'none',
             border: `1px solid ${activeFilter === v ? 'var(--amber-dim)' : 'rgba(255,255,255,0.08)'}`,
             color: activeFilter === v ? 'var(--amber)' : 'rgba(232,228,220,0.4)',
             borderRadius: '20px', cursor: 'pointer', transition: 'all 0.15s',
@@ -193,7 +211,6 @@ function DebateSection({ quoteId, debateComments: initial, onAuthRequired }) {
         ))}
       </div>
 
-      {/* 留言列表 */}
       {displayed.length === 0 && (
         <div style={{ color: 'rgba(232,228,220,0.22)', fontSize: '0.68rem', fontFamily: "'Space Mono', monospace", padding: '0.5rem 0 0.8rem' }}>
           還沒有人發表意見，來第一個！
@@ -205,11 +222,7 @@ function DebateSection({ quoteId, debateComments: initial, onAuthRequired }) {
         const bgColor = isFor ? 'rgba(80,160,120,0.07)' : 'rgba(155,79,92,0.07)';
         const isLiked = user && d.likes?.includes(user.id);
         return (
-          <div key={d._id} style={{
-            display: 'flex', gap: '0.6rem', padding: '0.7rem 0.6rem',
-            borderBottom: '1px solid rgba(255,255,255,0.05)',
-            background: bgColor, borderRadius: '3px', marginBottom: '0.3rem',
-          }}>
+          <div key={d._id} style={{ display: 'flex', gap: '0.6rem', padding: '0.7rem 0.6rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: bgColor, borderRadius: '3px', marginBottom: '0.3rem' }}>
             <UserAvatar username={d.username} avatar={d.avatar} avatarEmoji={d.avatarEmoji} />
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
@@ -224,9 +237,7 @@ function DebateSection({ quoteId, debateComments: initial, onAuthRequired }) {
                   background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem',
                   fontFamily: "'Space Mono', monospace", fontSize: '0.58rem',
                   color: isLiked ? 'var(--amber)' : 'rgba(232,228,220,0.3)', transition: 'color 0.15s',
-                }}>
-                  ♡ {d.likes?.length || 0}
-                </button>
+                }}>♡ {d.likes?.length || 0}</button>
                 {user && String(d.user) === String(user.id) && (
                   <button onClick={() => handleDelete(d._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Space Mono', monospace", fontSize: '0.55rem', color: 'rgba(200,100,110,0.4)', transition: 'color 0.15s' }}>
                     刪除
@@ -238,7 +249,6 @@ function DebateSection({ quoteId, debateComments: initial, onAuthRequired }) {
         );
       })}
 
-      {/* 發表表單 */}
       {user ? (
         <form onSubmit={handleSubmit} style={{ marginTop: '0.8rem' }}>
           <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem' }}>
@@ -266,27 +276,15 @@ function DebateSection({ quoteId, debateComments: initial, onAuthRequired }) {
   );
 }
 
-/* 共用樣式 */
-const tinyBtn = {
-  background: 'none', border: '1px solid rgba(255,255,255,0.08)',
-  color: 'rgba(232,228,220,0.3)', cursor: 'pointer', borderRadius: '2px',
-  padding: '0.12rem 0.4rem', fontFamily: "'Space Mono', monospace",
-  fontSize: '0.5rem', flexShrink: 0, transition: 'color 0.15s',
-};
-const miniBtn = (color) => ({
-  background: 'none', border: `1px solid ${color}40`, color,
-  cursor: 'pointer', borderRadius: '2px', padding: '0.2rem 0.5rem',
-  fontFamily: "'Space Mono', monospace", fontSize: '0.55rem', flexShrink: 0,
-});
-
-/* 主卡片 */
+/* ── 主卡片 ── */
 const CARD_BG = '#0f1f3d';
 const CARD_BG_HOVER = '#122347';
 
 export default function QuoteCard({ quote: initial, onAuthRequired, onTagClick }) {
   const [quote, setQuote] = useState(initial);
-  const [activeTab, setActiveTab] = useState(null); // null | 'comments' | 'debate'
+  const [activeTab, setActiveTab] = useState(null);
   const [hovered, setHovered] = useState(false);
+  const [showPoster, setShowPoster] = useState(false);
   const { user, API } = useAuth();
   const { addToast } = useToast();
 
@@ -321,106 +319,119 @@ export default function QuoteCard({ quote: initial, onAuthRequired, onTagClick }
   const toggleTab = (tab) => setActiveTab(prev => prev === tab ? null : tab);
 
   return (
-    <div
-      style={{
-        backgroundColor: hovered ? CARD_BG_HOVER : CARD_BG,
-        borderRadius: '6px', padding: '1.8rem 1.6rem 1.4rem',
-        position: 'relative', overflow: 'hidden',
-        transition: 'transform 0.2s, box-shadow 0.2s, background-color 0.2s',
-        display: 'flex', flexDirection: 'column',
-        boxShadow: hovered ? '0 12px 40px rgba(0,0,0,0.55)' : '0 4px 20px rgba(0,0,0,0.35)',
-        transform: hovered ? 'translateY(-3px)' : 'none',
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {/* 裝飾引號 */}
-      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '6rem', lineHeight: 1, color: 'rgba(255,255,255,0.04)', position: 'absolute', top: 0, right: '1rem', pointerEvents: 'none', userSelect: 'none' }}>"</div>
+    <>
+      <div
+        style={{
+          backgroundColor: hovered ? CARD_BG_HOVER : CARD_BG,
+          borderRadius: '6px', padding: '1.8rem 1.6rem 1.4rem',
+          position: 'relative', overflow: 'hidden',
+          transition: 'transform 0.2s, box-shadow 0.2s, background-color 0.2s',
+          display: 'flex', flexDirection: 'column',
+          boxShadow: hovered ? '0 12px 40px rgba(0,0,0,0.55)' : '0 4px 20px rgba(0,0,0,0.35)',
+          transform: hovered ? 'translateY(-3px)' : 'none',
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        {/* 裝飾引號 */}
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '6rem', lineHeight: 1, color: 'rgba(255,255,255,0.04)', position: 'absolute', top: 0, right: '1rem', pointerEvents: 'none', userSelect: 'none' }}>"</div>
 
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.55rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(200,169,110,0.45)', marginBottom: '1rem' }}>
-        {quote.source === 'ai' ? '✦ AI 生成' : '用戶投稿'}
-      </div>
-
-      <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.97rem', lineHeight: 2, color: 'rgba(232,228,220,0.92)', flex: 1, marginBottom: '1.2rem', position: 'relative', zIndex: 1 }}>
-        {quote.content}
-      </div>
-
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.62rem', letterSpacing: '0.1em', color: 'rgba(200,169,110,0.65)', marginBottom: '0.9rem' }}>
-        — {quote.author}
-      </div>
-
-      {quote.tags?.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '1rem' }}>
-          {quote.tags.map(tag => (
-            <span key={tag} className="tag dark" onClick={e => { e.stopPropagation(); onTagClick?.(tag); }}>#{tag}</span>
-          ))}
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.55rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(200,169,110,0.45)', marginBottom: '1rem' }}>
+          {quote.source === 'ai' ? '✦ AI 生成' : '用戶投稿'}
         </div>
-      )}
 
-      {/* 動作列 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingTop: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.07)', marginTop: 'auto', flexWrap: 'wrap' }}>
-        <button className={`quote-action-btn ${isLiked ? 'liked' : ''}`} onClick={handleLike}>
-          <HeartIcon filled={isLiked} />
-        </button>
-        <button className={`quote-action-btn ${isSaved ? 'saved' : ''}`} onClick={handleSave}>
-          <BookmarkIcon filled={isSaved} />
-        </button>
+        <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.97rem', lineHeight: 2, color: 'rgba(232,228,220,0.92)', flex: 1, marginBottom: '1.2rem', position: 'relative', zIndex: 1 }}>
+          {quote.content}
+        </div>
 
-        {/* 留言 Tab 切換 */}
-        <button onClick={() => toggleTab('comments')} style={{
-          display: 'flex', alignItems: 'center', gap: '0.35rem',
-          fontFamily: "'Space Mono', monospace", fontSize: '0.62rem',
-          color: activeTab === 'comments' ? 'var(--amber)' : 'rgba(232,228,220,0.4)',
-          background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem 0', transition: 'color 0.15s',
-        }}>
-          <ChatIcon style={{ width: 13, height: 13 }} />
-          {quote.comments?.length || 0}
-        </button>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.62rem', letterSpacing: '0.1em', color: 'rgba(200,169,110,0.65)', marginBottom: '0.9rem' }}>
+          — {quote.author}
+        </div>
 
-        {/* 辯論 Tab 切換 */}
-        <button onClick={() => toggleTab('debate')} style={{
-          display: 'flex', alignItems: 'center', gap: '0.35rem',
-          fontFamily: "'Space Mono', monospace", fontSize: '0.62rem',
-          color: activeTab === 'debate' ? 'var(--amber)' : 'rgba(232,228,220,0.4)',
-          background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem 0', transition: 'color 0.15s',
-          letterSpacing: '0.04em',
-        }}>
-          ⚖ {quote.debateComments?.length || 0}
-        </button>
+        {quote.tags?.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '1rem' }}>
+            {quote.tags.map(tag => (
+              <span key={tag} className="tag dark" onClick={e => { e.stopPropagation(); onTagClick?.(tag); }}>#{tag}</span>
+            ))}
+          </div>
+        )}
 
-        {quote.submittedBy?.username && (
-          <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: '0.52rem', letterSpacing: '0.04em', color: 'rgba(232,228,220,0.18)' }}>
-            {quote.submittedBy.username}
-          </span>
+        {/* 動作列 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingTop: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.07)', marginTop: 'auto', flexWrap: 'wrap' }}>
+          <button className={`quote-action-btn ${isLiked ? 'liked' : ''}`} onClick={handleLike}>
+            <HeartIcon filled={isLiked} />
+          </button>
+          <button className={`quote-action-btn ${isSaved ? 'saved' : ''}`} onClick={handleSave}>
+            <BookmarkIcon filled={isSaved} />
+          </button>
+
+          <button onClick={() => toggleTab('comments')} style={{
+            display: 'flex', alignItems: 'center', gap: '0.35rem',
+            fontFamily: "'Space Mono', monospace", fontSize: '0.62rem',
+            color: activeTab === 'comments' ? 'var(--amber)' : 'rgba(232,228,220,0.4)',
+            background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem 0', transition: 'color 0.15s',
+          }}>
+            <ChatIcon />
+            {quote.comments?.length || 0}
+          </button>
+
+          <button onClick={() => toggleTab('debate')} style={{
+            display: 'flex', alignItems: 'center', gap: '0.35rem',
+            fontFamily: "'Space Mono', monospace", fontSize: '0.62rem',
+            color: activeTab === 'debate' ? 'var(--amber)' : 'rgba(232,228,220,0.4)',
+            background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem 0', transition: 'color 0.15s',
+            letterSpacing: '0.04em',
+          }}>
+            ⚖ {quote.debateComments?.length || 0}
+          </button>
+
+          {/* 海報按鈕 */}
+          <button
+            onClick={e => { e.stopPropagation(); setShowPoster(true); }}
+            title="生成海報"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'rgba(232,228,220,0.22)', fontSize: '0.8rem',
+              padding: '0.1rem 0.2rem', transition: 'color 0.15s', lineHeight: 1,
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'rgba(200,169,110,0.7)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'rgba(232,228,220,0.22)'}
+          >🖼</button>
+
+          {quote.submittedBy?.username && (
+            <span style={{ marginLeft: 'auto', fontFamily: "'Space Mono', monospace", fontSize: '0.52rem', letterSpacing: '0.04em', color: 'rgba(232,228,220,0.18)' }}>
+              {quote.submittedBy.username}
+            </span>
+          )}
+        </div>
+
+        {/* 展開區塊 */}
+        {activeTab && (
+          <div style={{ marginTop: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.9rem' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.8rem' }}>
+              {[['comments', '💬 留言'], ['debate', '⚖ 辯論']].map(([tab, label]) => (
+                <button key={tab} onClick={() => setActiveTab(tab)} style={{
+                  fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', letterSpacing: '0.08em',
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 0.3rem',
+                  borderBottom: `1px solid ${activeTab === tab ? 'var(--amber)' : 'transparent'}`,
+                  color: activeTab === tab ? 'var(--amber)' : 'rgba(232,228,220,0.3)',
+                  transition: 'all 0.15s',
+                }}>{label}</button>
+              ))}
+            </div>
+            {activeTab === 'comments' && (
+              <CommentsSection quoteId={quote._id} comments={quote.comments} onAuthRequired={onAuthRequired} />
+            )}
+            {activeTab === 'debate' && (
+              <DebateSection quoteId={quote._id} debateComments={quote.debateComments} onAuthRequired={onAuthRequired} />
+            )}
+          </div>
         )}
       </div>
 
-      {/* 展開區塊 */}
-      {activeTab && (
-        <div style={{ marginTop: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.9rem' }}
-          onClick={e => e.stopPropagation()}>
-
-          {/* Tab Header */}
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.8rem' }}>
-            {[['comments', '💬 留言'], ['debate', '⚖ 辯論']].map(([tab, label]) => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', letterSpacing: '0.08em',
-                background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 0.3rem',
-                borderBottom: `1px solid ${activeTab === tab ? 'var(--amber)' : 'transparent'}`,
-                color: activeTab === tab ? 'var(--amber)' : 'rgba(232,228,220,0.3)',
-                transition: 'all 0.15s',
-              }}>{label}</button>
-            ))}
-          </div>
-
-          {activeTab === 'comments' && (
-            <CommentsSection quoteId={quote._id} comments={quote.comments} onAuthRequired={onAuthRequired} />
-          )}
-          {activeTab === 'debate' && (
-            <DebateSection quoteId={quote._id} debateComments={quote.debateComments} onAuthRequired={onAuthRequired} />
-          )}
-        </div>
-      )}
-    </div>
+      {/* 海報 Modal — 在卡片 div 外面，需要 fragment 包住 */}
+      {showPoster && <PosterModal quote={quote} onClose={() => setShowPoster(false)} />}
+    </>
   );
 }
