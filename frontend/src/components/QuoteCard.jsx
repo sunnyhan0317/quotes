@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import PosterModal from './PosterModal';
 
 const HeartIcon = ({ filled }) => (
   <svg viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
@@ -286,9 +285,8 @@ const CARD_BG_HOVER = '#122347';
 
 export default function QuoteCard({ quote: initial, onAuthRequired, onTagClick }) {
   const [quote, setQuote] = useState(initial);
-  const [activeTab, setActiveTab] = useState(null);
+  const [activeTab, setActiveTab] = useState(null); // null | 'comments' | 'debate'
   const [hovered, setHovered] = useState(false);
-  const [showPoster, setShowPoster] = useState(false);
   const { user, API } = useAuth();
   const { addToast } = useToast();
 
@@ -323,7 +321,6 @@ export default function QuoteCard({ quote: initial, onAuthRequired, onTagClick }
   const toggleTab = (tab) => setActiveTab(prev => prev === tab ? null : tab);
 
   return (
-    <>
     <div
       style={{
         backgroundColor: hovered ? CARD_BG_HOVER : CARD_BG,
@@ -396,23 +393,6 @@ export default function QuoteCard({ quote: initial, onAuthRequired, onTagClick }
             {quote.submittedBy.username}
           </span>
         )}
-
-        {/* 海報按鈕 */}
-        <button
-          onClick={e => { e.stopPropagation(); setShowPoster(true); }}
-          title="生成海報"
-          style={{
-            marginLeft: quote.submittedBy?.username ? '0' : 'auto',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'rgba(232,228,220,0.22)', fontSize: '0.75rem',
-            padding: '0.1rem 0.2rem', transition: 'color 0.15s',
-            lineHeight: 1,
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = 'rgba(200,169,110,0.7)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'rgba(232,228,220,0.22)'}
-        >
-          🖼
-        </button>
       </div>
 
       {/* 展開區塊 */}
@@ -442,9 +422,5 @@ export default function QuoteCard({ quote: initial, onAuthRequired, onTagClick }
         </div>
       )}
     </div>
-
-    {/* 海報 Modal */}
-    {showPoster && <PosterModal quote={quote} onClose={() => setShowPoster(false)} />}
-  </>
   );
 }
