@@ -1,56 +1,103 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-const MOODS = ['😄', '😊', '😐', '😔', '😢', '😡', '😴', '🤔', '✨', '💪'];
-const WEATHERS = ['☀️', '⛅', '🌧️', '⛈️', '❄️', '🌫️'];
-const MOOD_LABELS = { '😄': '很棒', '😊': '不錯', '😐': '普通', '😔': '有點低落', '😢': '很難過', '😡': '生氣', '😴': '疲憊', '🤔': '思考中', '✨': '很有靈感', '💪': '充滿能量' };
+const MOODS = ['😄','😊','😐','😔','😢','😡','😴','🤔','✨','💪'];
+const WEATHERS = ['☀️','⛅','🌧️','⛈️','❄️','🌫️'];
+const MOOD_LABELS = {
+  '😄':'很棒','😊':'不錯','😐':'普通','😔':'有點低落',
+  '😢':'很難過','😡':'生氣','😴':'疲憊','🤔':'思考中',
+  '✨':'很有靈感','💪':'充滿能量',
+};
 
-/* 日期格式 */
-const today = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
 const formatDate = (d) => {
-  const date = new Date(d);
+  const date = new Date(d + 'T00:00:00'); // 避免時區偏移
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
 };
+
 const daysUntil = (d) => {
   const diff = new Date(d) - new Date();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 };
 
-/* ── 心情日記 ── */
+/* ══ 心情日記 ══ */
 function MoodDiary({ API }) {
   const { addToast } = useToast();
-  const [diaries, setDiaries] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(today());
-  const [current, setCurrent] = useState(null);
-  const [form, setForm] = useState({ mood: '', weather: '', content: '', tags: '' });
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [view, setView] = useState('write'); // 'write' | 'history'
+  const [diaries, setDiaries]       = useState([]);
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [current, setCurrent]       = useState(undefined); // undefined=loading, null=無記錄
+  const [form, setForm]             = useState({ mood: '', weather: '', content: '', tags: '' });
+  const [editing, setEditing]       = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const [listLoading, setListLoading] = useState(true);
+  const [dayLoading, setDayLoading]   = useState(true);
+  const [view, setView]             = useState('write');
+  const abortRef = useRef(null);
 
+  // 取得所有日記列表
   const fetchDiaries = useCallback(async () => {
+    setListLoading(true);
     try {
       const r = await API.get('/diary/mood');
-      setDiaries(r.data);
-    } catch {}
-  }, []);
+      setDiaries(Array.isArray(r.data) ? r.data : []);
+    } catch (e) {
+      console.error('fetchDiaries error', e);
+      setDiaries([]);
+    } finally {
+      setListLoading(false);
+    }
+  }, [API]);
 
+  // 取得特定日期
   const fetchDay = useCallback(async (date) => {
+    // 取消上一個請求
+    if (abortRef.current) abortRef.current();
+    let cancelled = false;
+    abortRef.current = () => { cancelled = true; };
+
+    setDayLoading(true);
+    setCurrent(undefined);
     try {
-      const r = await API.get(`/diary/mood/${date}`);
-      setCurrent(r.data);
-      if (r.data) {
-        setForm({ mood: r.data.mood, weather: r.data.weather || '', content: r.data.content || '', tags: r.data.tags?.join(', ') || '' });
+      const r = await API.get(`/diary/mood/date/${date}`);
+      if (cancelled) return;
+      const data = r.data; // null 或 diary object
+      setCurrent(data);
+      if (data) {
+        setForm({
+          mood: data.mood || '',
+          weather: data.weather || '',
+          content: data.content || '',
+          tags: Array.isArray(data.tags) ? data.tags.join(', ') : '',
+        });
         setEditing(false);
       } else {
         setForm({ mood: '', weather: '', content: '', tags: '' });
         setEditing(true);
       }
-    } catch {}
-  }, []);
+    } catch (e) {
+      if (cancelled) return;
+      console.error('fetchDay error', e);
+      setCurrent(null);
+      setForm({ mood: '', weather: '', content: '', tags: '' });
+      setEditing(true);
+    } finally {
+      if (!cancelled) setDayLoading(false);
+    }
+  }, [API]);
 
-  useEffect(() => { fetchDiaries(); fetchDay(selectedDate); }, []);
+  useEffect(() => {
+    fetchDiaries();
+    fetchDay(todayStr());
+    return () => { if (abortRef.current) abortRef.current(); };
+  }, [fetchDiaries, fetchDay]);
+
+  const handleDateChange = (date) => {
+    setSelectedDate(date);
+    fetchDay(date);
+  };
 
   const handleSave = async () => {
     if (!form.mood) { addToast('請選擇今天的心情', 'error'); return; }
@@ -58,15 +105,21 @@ function MoodDiary({ API }) {
     try {
       const tags = form.tags.split(/[,，\s]+/).filter(Boolean);
       const r = await API.post('/diary/mood', {
-        date: selectedDate, mood: form.mood, weather: form.weather,
-        content: form.content, tags,
+        date: selectedDate,
+        mood: form.mood,
+        weather: form.weather,
+        content: form.content,
+        tags,
       });
       setCurrent(r.data.diary);
       setEditing(false);
       addToast('日記已儲存 ✨', 'success');
       fetchDiaries();
-    } catch (e) { addToast(e.response?.data?.message || '儲存失敗', 'error'); }
-    finally { setSaving(false); }
+    } catch (e) {
+      addToast(e.response?.data?.message || '儲存失敗', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -81,52 +134,72 @@ function MoodDiary({ API }) {
     } catch { addToast('刪除失敗', 'error'); }
   };
 
-  const moodMap = {};
-  diaries.forEach(d => { moodMap[d.date] = d.mood; });
+  /* ── 共用樣式 ── */
+  const sBtn = (active) => ({
+    fontFamily: "'Space Mono', monospace", fontSize: '0.63rem', letterSpacing: '0.1em',
+    textTransform: 'uppercase', padding: '0.5rem 0', background: 'none', border: 'none',
+    borderBottom: `2px solid ${active ? 'var(--amber)' : 'transparent'}`,
+    color: active ? 'var(--amber)' : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s',
+  });
 
   return (
     <div>
-      {/* 頂部切換 */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0' }}>
-        {[['write', '今日記錄'], ['history', '過往日記']].map(([v, l]) => (
-          <button key={v} onClick={() => setView(v)} style={{
-            fontFamily: "'Space Mono', monospace", fontSize: '0.63rem', letterSpacing: '0.1em',
-            textTransform: 'uppercase', padding: '0.5rem 0', background: 'none', border: 'none',
-            borderBottom: `2px solid ${view === v ? 'var(--amber)' : 'transparent'}`,
-            color: view === v ? 'var(--amber)' : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s',
-          }}>{l}</button>
-        ))}
+      {/* Tab 切換 */}
+      <div style={{ display: 'flex', gap: '1.5rem', borderBottom: '1px solid var(--border)', marginBottom: '1.5rem' }}>
+        <button style={sBtn(view === 'write')}   onClick={() => setView('write')}>今日記錄</button>
+        <button style={sBtn(view === 'history')} onClick={() => setView('history')}>
+          過往日記 {!listLoading && diaries.length > 0 && `(${diaries.length})`}
+        </button>
       </div>
 
+      {/* ── 今日記錄 ── */}
       {view === 'write' && (
         <div>
           {/* 日期選擇 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-            <input type="date" value={selectedDate} max={today()}
-              onChange={e => { setSelectedDate(e.target.value); fetchDay(e.target.value); }}
-              style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.72rem', padding: '0.5rem 0.8rem', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '2px', outline: 'none' }} />
+            <input
+              type="date" value={selectedDate} max={todayStr()}
+              onChange={e => handleDateChange(e.target.value)}
+              style={{
+                fontFamily: "'Space Mono', monospace", fontSize: '0.72rem',
+                padding: '0.5rem 0.8rem', background: 'var(--surface)',
+                border: '1px solid var(--border)', color: 'var(--text)',
+                borderRadius: '2px', outline: 'none',
+              }}
+            />
             <span style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.9rem', color: 'var(--text-muted)' }}>
               {formatDate(selectedDate)}
             </span>
           </div>
 
-          {/* 寫入/檢視 */}
-          {editing ? (
+          {/* 載入中 */}
+          {dayLoading ? (
+            <div className="loading">載入中</div>
+          ) : editing ? (
+            /* ── 編輯表單 ── */
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-              {/* 心情選擇 */}
+
+              {/* 心情 */}
               <div>
-                <label className="form-label">今天的心情</label>
+                <label className="form-label">今天的心情 *</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
                   {MOODS.map(m => (
-                    <button key={m} type="button" onClick={() => setForm(f => ({ ...f, mood: m }))} title={MOOD_LABELS[m]} style={{
-                      fontSize: '1.5rem', width: '44px', height: '44px', borderRadius: '8px',
-                      background: form.mood === m ? 'rgba(200,169,110,0.2)' : 'var(--bg-3)',
-                      border: `2px solid ${form.mood === m ? 'var(--amber)' : 'transparent'}`,
-                      cursor: 'pointer', transition: 'all 0.15s', lineHeight: 1,
-                    }}>{m}</button>
+                    <button key={m} type="button" onClick={() => setForm(f => ({ ...f, mood: m }))} title={MOOD_LABELS[m]}
+                      style={{
+                        fontSize: '1.5rem', width: '44px', height: '44px', borderRadius: '8px',
+                        background: form.mood === m ? 'rgba(200,169,110,0.2)' : 'var(--bg-3)',
+                        border: `2px solid ${form.mood === m ? 'var(--amber)' : 'transparent'}`,
+                        cursor: 'pointer', transition: 'all 0.15s', lineHeight: 1,
+                      }}>
+                      {m}
+                    </button>
                   ))}
                 </div>
-                {form.mood && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.65rem', color: 'var(--amber)', marginTop: '0.4rem', letterSpacing: '0.06em' }}>{MOOD_LABELS[form.mood]}</div>}
+                {form.mood && (
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.65rem', color: 'var(--amber)', marginTop: '0.4rem', letterSpacing: '0.06em' }}>
+                    {MOOD_LABELS[form.mood]}
+                  </div>
+                )}
               </div>
 
               {/* 天氣 */}
@@ -134,12 +207,16 @@ function MoodDiary({ API }) {
                 <label className="form-label">今天的天氣（選填）</label>
                 <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem' }}>
                   {WEATHERS.map(w => (
-                    <button key={w} type="button" onClick={() => setForm(f => ({ ...f, weather: f.weather === w ? '' : w }))} style={{
-                      fontSize: '1.3rem', width: '40px', height: '40px', borderRadius: '8px',
-                      background: form.weather === w ? 'rgba(200,169,110,0.15)' : 'var(--bg-3)',
-                      border: `2px solid ${form.weather === w ? 'var(--amber)' : 'transparent'}`,
-                      cursor: 'pointer', transition: 'all 0.15s', lineHeight: 1,
-                    }}>{w}</button>
+                    <button key={w} type="button"
+                      onClick={() => setForm(f => ({ ...f, weather: f.weather === w ? '' : w }))}
+                      style={{
+                        fontSize: '1.3rem', width: '40px', height: '40px', borderRadius: '8px',
+                        background: form.weather === w ? 'rgba(200,169,110,0.15)' : 'var(--bg-3)',
+                        border: `2px solid ${form.weather === w ? 'var(--amber)' : 'transparent'}`,
+                        cursor: 'pointer', transition: 'all 0.15s', lineHeight: 1,
+                      }}>
+                      {w}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -147,31 +224,52 @@ function MoodDiary({ API }) {
               {/* 內容 */}
               <div>
                 <label className="form-label">寫下今天的故事</label>
-                <textarea className="form-textarea" rows={6} placeholder="今天發生了什麼？有什麼感受？想記錄下來的事..."
-                  value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} style={{ marginTop: '0.4rem' }} />
+                <textarea
+                  className="form-textarea" rows={6}
+                  placeholder="今天發生了什麼？有什麼感受？想記錄下來的事..."
+                  value={form.content}
+                  onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+                  style={{ marginTop: '0.4rem' }}
+                />
               </div>
 
               {/* 標籤 */}
               <div>
                 <label className="form-label">關鍵字標籤（逗號分隔）</label>
-                <input className="form-input" placeholder="例：工作、家人、咖啡" value={form.tags}
-                  onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} style={{ marginTop: '0.4rem' }} />
+                <input
+                  className="form-input"
+                  placeholder="例：工作、家人、咖啡"
+                  value={form.tags}
+                  onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
+                  style={{ marginTop: '0.4rem' }}
+                />
               </div>
 
+              {/* 按鈕 */}
               <div style={{ display: 'flex', gap: '0.7rem' }}>
                 <button className="submit-btn" onClick={handleSave} disabled={saving} style={{ maxWidth: '160px' }}>
                   {saving ? '儲存中...' : '儲存日記'}
                 </button>
-                {current && <button type="button" onClick={() => setEditing(false)} style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.68rem', padding: '0.78rem 1rem', background: 'none', border: '1px solid var(--border)', borderRadius: '2px', cursor: 'pointer', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>取消</button>}
+                {current && (
+                  <button type="button" onClick={() => setEditing(false)} style={{
+                    fontFamily: "'Space Mono', monospace", fontSize: '0.68rem',
+                    padding: '0.78rem 1rem', background: 'none',
+                    border: '1px solid var(--border)', borderRadius: '2px',
+                    cursor: 'pointer', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase',
+                  }}>取消</button>
+                )}
               </div>
             </div>
           ) : current ? (
+            /* ── 閱讀模式 ── */
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                   <span style={{ fontSize: '2.5rem', lineHeight: 1 }}>{current.mood}</span>
                   <div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.68rem', color: 'var(--amber)', letterSpacing: '0.06em' }}>{MOOD_LABELS[current.mood]}</div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.68rem', color: 'var(--amber)', letterSpacing: '0.06em' }}>
+                      {MOOD_LABELS[current.mood]}
+                    </div>
                     {current.weather && <div style={{ fontSize: '1rem', marginTop: '0.2rem' }}>{current.weather}</div>}
                   </div>
                 </div>
@@ -181,7 +279,9 @@ function MoodDiary({ API }) {
                 </div>
               </div>
               {current.content && (
-                <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.9rem', lineHeight: 2, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: '1rem' }}>{current.content}</div>
+                <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.9rem', lineHeight: 2, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: '1rem' }}>
+                  {current.content}
+                </div>
               )}
               {current.tags?.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
@@ -190,25 +290,35 @@ function MoodDiary({ API }) {
               )}
             </div>
           ) : (
+            /* ── 這天無記錄 ── */
             <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', fontFamily: "'Space Mono', monospace", fontSize: '0.72rem', letterSpacing: '0.1em' }}>
-              這一天還沒有記錄<br />
-              <button onClick={() => setEditing(true)} style={{ marginTop: '1rem', fontFamily: "'Space Mono', monospace", fontSize: '0.65rem', padding: '0.5rem 1.2rem', background: 'rgba(200,169,110,0.12)', border: '1px solid var(--amber-dim)', color: 'var(--amber)', borderRadius: '2px', cursor: 'pointer' }}>開始記錄</button>
+              這一天還沒有記錄
+              <div style={{ marginTop: '1rem' }}>
+                <button onClick={() => setEditing(true)} style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.65rem', padding: '0.5rem 1.2rem', background: 'rgba(200,169,110,0.12)', border: '1px solid var(--amber-dim)', color: 'var(--amber)', borderRadius: '2px', cursor: 'pointer' }}>
+                  開始記錄
+                </button>
+              </div>
             </div>
           )}
         </div>
       )}
 
+      {/* ── 歷史列表 ── */}
       {view === 'history' && (
         <div>
-          {diaries.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', fontFamily: "'Space Mono', monospace", fontSize: '0.72rem' }}>還沒有任何日記記錄</div>
+          {listLoading ? (
+            <div className="loading">載入中</div>
+          ) : diaries.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', fontFamily: "'Space Mono', monospace", fontSize: '0.72rem' }}>
+              還沒有任何日記記錄
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--border)', border: '1px solid var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
               {diaries.map(d => (
-                <div key={d._id} onClick={() => { setSelectedDate(d.date); fetchDay(d.date); setView('write'); }} style={{
-                  display: 'flex', alignItems: 'center', gap: '1rem',
-                  padding: '0.9rem 1.2rem', background: 'var(--surface)', cursor: 'pointer', transition: 'background 0.15s',
-                }}
+                <div
+                  key={d._id}
+                  onClick={() => { setSelectedDate(d.date); handleDateChange(d.date); setView('write'); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.9rem 1.2rem', background: 'var(--surface)', cursor: 'pointer', transition: 'background 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}
                 >
@@ -238,31 +348,41 @@ function MoodDiary({ API }) {
   );
 }
 
-/* ── 寫給未來的信 ── */
+/* ══ 寫給未來的信 ══ */
 function FutureLetters({ API }) {
   const { addToast } = useToast();
-  const [letters, setLetters] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', content: '', openDate: '', mood: '' });
-  const [saving, setSaving] = useState(false);
+  const [letters, setLetters]       = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [showForm, setShowForm]     = useState(false);
+  const [form, setForm]             = useState({ title: '', content: '', openDate: '', mood: '' });
+  const [saving, setSaving]         = useState(false);
   const [openedLetter, setOpenedLetter] = useState(null);
 
   const fetchLetters = useCallback(async () => {
+    setLoading(true);
     try {
       const r = await API.get('/diary/future');
-      setLetters(r.data);
-    } catch {}
-  }, []);
+      setLetters(Array.isArray(r.data) ? r.data : []);
+    } catch (e) {
+      console.error('fetchLetters error', e);
+      setLetters([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [API]);
 
-  useEffect(() => { fetchLetters(); }, []);
+  useEffect(() => { fetchLetters(); }, [fetchLetters]);
 
-  // 最短開封日期（明天）
-  const minDate = new Date();
-  minDate.setDate(minDate.getDate() + 1);
-  const minDateStr = minDate.toISOString().slice(0, 10);
+  const minDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
 
   const handleSend = async () => {
-    if (!form.title || !form.content || !form.openDate) { addToast('請填寫完整', 'error'); return; }
+    if (!form.title || !form.content || !form.openDate) {
+      addToast('請填寫完整', 'error'); return;
+    }
     setSaving(true);
     try {
       await API.post('/diary/future', form);
@@ -270,8 +390,11 @@ function FutureLetters({ API }) {
       setShowForm(false);
       setForm({ title: '', content: '', openDate: '', mood: '' });
       fetchLetters();
-    } catch (e) { addToast(e.response?.data?.message || '儲存失敗', 'error'); }
-    finally { setSaving(false); }
+    } catch (e) {
+      addToast(e.response?.data?.message || '儲存失敗', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -285,24 +408,28 @@ function FutureLetters({ API }) {
   };
 
   const pending = letters.filter(l => !l.opened);
-  const opened = letters.filter(l => l.opened);
+  const opened  = letters.filter(l => l.opened);
 
   return (
     <div>
       {/* 新增按鈕 */}
       {!showForm && (
-        <button onClick={() => setShowForm(true)} style={{
-          width: '100%', padding: '1rem',
-          background: 'rgba(200,169,110,0.08)',
-          border: '1px dashed var(--amber-dim)',
-          borderRadius: '6px', cursor: 'pointer',
-          fontFamily: "'Space Mono', monospace", fontSize: '0.68rem',
-          color: 'var(--amber)', letterSpacing: '0.1em', textTransform: 'uppercase',
-          transition: 'all 0.2s', marginBottom: '1.5rem',
-        }}
+        <button
+          onClick={() => setShowForm(true)}
+          style={{
+            width: '100%', padding: '1rem',
+            background: 'rgba(200,169,110,0.08)',
+            border: '1px dashed var(--amber-dim)',
+            borderRadius: '6px', cursor: 'pointer',
+            fontFamily: "'Space Mono', monospace", fontSize: '0.68rem',
+            color: 'var(--amber)', letterSpacing: '0.1em', textTransform: 'uppercase',
+            transition: 'all 0.2s', marginBottom: '1.5rem',
+          }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(200,169,110,0.14)'}
           onMouseLeave={e => e.currentTarget.style.background = 'rgba(200,169,110,0.08)'}
-        >+ 寫一封給未來自己的信</button>
+        >
+          + 寫一封給未來自己的信
+        </button>
       )}
 
       {/* 寫信表單 */}
@@ -311,38 +438,44 @@ function FutureLetters({ API }) {
           <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '1rem', color: 'var(--text)', letterSpacing: '0.04em' }}>寫給未來的自己</div>
 
           <div>
-            <label className="form-label">信件標題</label>
-            <input className="form-input" placeholder="例：親愛的一年後的自己" value={form.title}
-              onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ marginTop: '0.4rem' }} />
+            <label className="form-label">信件標題 *</label>
+            <input className="form-input" placeholder="例：親愛的一年後的自己"
+              value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ marginTop: '0.4rem' }} />
           </div>
 
           <div>
-            <label className="form-label">預計開封日期</label>
-            <input type="date" min={minDateStr} value={form.openDate}
+            <label className="form-label">預計開封日期 *</label>
+            <input
+              type="date" min={minDate} value={form.openDate}
               onChange={e => setForm(f => ({ ...f, openDate: e.target.value }))}
-              style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.72rem', padding: '0.58rem 0.9rem', background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '2px', outline: 'none', marginTop: '0.4rem', display: 'block' }} />
-            {form.openDate && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', color: 'var(--amber)', marginTop: '0.3rem', letterSpacing: '0.04em' }}>距今 {daysUntil(form.openDate)} 天後開封</div>}
+              style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.72rem', padding: '0.58rem 0.9rem', background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '2px', outline: 'none', marginTop: '0.4rem', display: 'block' }}
+            />
+            {form.openDate && (
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', color: 'var(--amber)', marginTop: '0.3rem', letterSpacing: '0.04em' }}>
+                距今 {daysUntil(form.openDate)} 天後開封
+              </div>
+            )}
           </div>
 
           <div>
             <label className="form-label">今天的心情（選填）</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.4rem' }}>
               {MOODS.map(m => (
-                <button key={m} type="button" onClick={() => setForm(f => ({ ...f, mood: f.mood === m ? '' : m }))} style={{
-                  fontSize: '1.3rem', width: '38px', height: '38px', borderRadius: '6px',
-                  background: form.mood === m ? 'rgba(200,169,110,0.2)' : 'var(--bg-3)',
-                  border: `2px solid ${form.mood === m ? 'var(--amber)' : 'transparent'}`,
-                  cursor: 'pointer', transition: 'all 0.15s',
-                }}>{m}</button>
+                <button key={m} type="button" onClick={() => setForm(f => ({ ...f, mood: f.mood === m ? '' : m }))}
+                  style={{ fontSize: '1.3rem', width: '38px', height: '38px', borderRadius: '6px', background: form.mood === m ? 'rgba(200,169,110,0.2)' : 'var(--bg-3)', border: `2px solid ${form.mood === m ? 'var(--amber)' : 'transparent'}`, cursor: 'pointer', transition: 'all 0.15s' }}>
+                  {m}
+                </button>
               ))}
             </div>
           </div>
 
           <div>
-            <label className="form-label">信件內容</label>
-            <textarea className="form-textarea" rows={8}
-              placeholder="親愛的未來的自己，你好嗎？&#10;&#10;現在的我想告訴你..."
-              value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} style={{ marginTop: '0.4rem' }} />
+            <label className="form-label">信件內容 *</label>
+            <textarea
+              className="form-textarea" rows={8}
+              placeholder={'親愛的未來的自己，你好嗎？\n\n現在的我想告訴你...'}
+              value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} style={{ marginTop: '0.4rem' }}
+            />
           </div>
 
           <div style={{ display: 'flex', gap: '0.7rem' }}>
@@ -354,106 +487,111 @@ function FutureLetters({ API }) {
         </div>
       )}
 
-      {/* 未開封 */}
-      {pending.length > 0 && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>📮 封存中 ({pending.length})</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            {pending.map(l => (
-              <div key={l._id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '4px', padding: '1rem 1.2rem', display: 'flex', alignItems: 'center', gap: '1rem', opacity: 0.75 }}>
-                <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>📩</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.88rem', color: 'var(--text)', marginBottom: '0.2rem' }}>{l.title}</div>
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', color: 'var(--amber)', letterSpacing: '0.04em' }}>
-                    {formatDate(l.openDate)} 開封 · 還有 {daysUntil(l.openDate)} 天
-                  </div>
-                </div>
-                <button onClick={() => handleDelete(l._id)} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--rose)', cursor: 'pointer', borderRadius: '2px', padding: '0.2rem 0.5rem', fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', flexShrink: 0 }}>刪除</button>
+      {loading ? (
+        <div className="loading">載入中</div>
+      ) : (
+        <>
+          {/* 未開封 */}
+          {pending.length > 0 && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>
+                📮 封存中 ({pending.length})
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 已開封 */}
-      {opened.length > 0 && (
-        <div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>💌 已開封 ({opened.length})</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            {opened.map(l => (
-              <div key={l._id}>
-                <div onClick={() => setOpenedLetter(openedLetter?._id === l._id ? null : l)} style={{
-                  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '4px', padding: '1rem 1.2rem',
-                  display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', transition: 'background 0.15s',
-                }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}
-                >
-                  <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{l.mood || '💌'}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.88rem', color: 'var(--text)', marginBottom: '0.2rem' }}>{l.title}</div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
-                      寫於 {formatDate(l.createdAt)} · 開封於 {formatDate(l.openDate)}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {pending.map(l => (
+                  <div key={l._id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '4px', padding: '1rem 1.2rem', display: 'flex', alignItems: 'center', gap: '1rem', opacity: 0.75 }}>
+                    <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>📩</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.88rem', color: 'var(--text)', marginBottom: '0.2rem' }}>{l.title}</div>
+                      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', color: 'var(--amber)', letterSpacing: '0.04em' }}>
+                        {new Date(l.openDate).toLocaleDateString('zh-TW')} 開封 · 還有 {daysUntil(l.openDate)} 天
+                      </div>
                     </div>
+                    <button onClick={() => handleDelete(l._id)} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--rose)', cursor: 'pointer', borderRadius: '2px', padding: '0.2rem 0.5rem', fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', flexShrink: 0 }}>刪除</button>
                   </div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', flexShrink: 0 }}>{openedLetter?._id === l._id ? '▲' : '▼'}</span>
-                </div>
-
-                {openedLetter?._id === l._id && (
-                  <div style={{ background: 'rgba(15,31,61,0.4)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 4px 4px', padding: '1.5rem' }}>
-                    <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.9rem', lineHeight: 2, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: '1rem' }}>{l.content}</div>
-                    <button onClick={() => handleDelete(l._id)} style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', padding: '0.3rem 0.7rem', background: 'none', border: '1px solid var(--border)', color: 'var(--rose)', borderRadius: '2px', cursor: 'pointer' }}>刪除</button>
-                  </div>
-                )}
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {letters.length === 0 && !showForm && (
-        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.08em' }}>
-          還沒有寫給未來自己的信<br />
-          <span style={{ opacity: 0.5 }}>時間是最誠實的見證者</span>
-        </div>
+          {/* 已開封 */}
+          {opened.length > 0 && (
+            <div>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>
+                💌 已開封 ({opened.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {opened.map(l => (
+                  <div key={l._id}>
+                    <div
+                      onClick={() => setOpenedLetter(openedLetter?._id === l._id ? null : l)}
+                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '4px', padding: '1rem 1.2rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', transition: 'background 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}
+                    >
+                      <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{l.mood || '💌'}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.88rem', color: 'var(--text)', marginBottom: '0.2rem' }}>{l.title}</div>
+                        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+                          寫於 {new Date(l.createdAt).toLocaleDateString('zh-TW')} · 開封於 {new Date(l.openDate).toLocaleDateString('zh-TW')}
+                        </div>
+                      </div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', flexShrink: 0 }}>
+                        {openedLetter?._id === l._id ? '▲' : '▼'}
+                      </span>
+                    </div>
+                    {openedLetter?._id === l._id && (
+                      <div style={{ background: 'rgba(15,31,61,0.4)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 4px 4px', padding: '1.5rem' }}>
+                        <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.9rem', lineHeight: 2, color: 'var(--text)', whiteSpace: 'pre-wrap', marginBottom: '1rem' }}>{l.content}</div>
+                        <button onClick={() => handleDelete(l._id)} style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', padding: '0.3rem 0.7rem', background: 'none', border: '1px solid var(--border)', color: 'var(--rose)', borderRadius: '2px', cursor: 'pointer' }}>刪除</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {letters.length === 0 && !showForm && (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.08em' }}>
+              還沒有寫給未來自己的信<br />
+              <span style={{ opacity: 0.5 }}>時間是最誠實的見證者</span>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-/* ── 主頁面 ── */
+/* ══ 主頁面 ══ */
 export default function DiaryPage() {
   const { user, API } = useAuth();
   const [tab, setTab] = useState('mood');
 
   if (!user) return <Navigate to="/" replace />;
 
+  const tabBtn = (active) => ({
+    fontFamily: "'Space Mono', monospace", fontSize: '0.63rem', letterSpacing: '0.1em',
+    textTransform: 'uppercase', padding: '0.7rem 0', background: 'none', border: 'none',
+    borderBottom: `2px solid ${active ? 'var(--amber)' : 'transparent'}`,
+    color: active ? 'var(--amber)' : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s',
+  });
+
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
-      {/* 標題 */}
       <div style={{ marginBottom: '2rem' }}>
         <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--amber)', opacity: 0.7, marginBottom: '0.5rem' }}>私密空間</div>
-        <h1 style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '1.6rem', fontWeight: 300, color: 'var(--text)', letterSpacing: '0.06em' }}>
-          我的日記
-        </h1>
-        <p style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.4rem', letterSpacing: '0.04em', lineHeight: 1.8 }}>
-          只有你自己看得見的角落
-        </p>
+        <h1 style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '1.6rem', fontWeight: 300, color: 'var(--text)', letterSpacing: '0.06em' }}>我的日記</h1>
+        <p style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.4rem', letterSpacing: '0.04em', lineHeight: 1.8 }}>只有你自己看得見的角落</p>
       </div>
 
-      {/* Tabs */}
       <div style={{ display: 'flex', gap: '1.5rem', borderBottom: '1px solid var(--border)', marginBottom: '1.8rem' }}>
-        {[['mood', '📅 心情日記'], ['future', '📮 寫給未來']].map(([v, l]) => (
-          <button key={v} onClick={() => setTab(v)} style={{
-            fontFamily: "'Space Mono', monospace", fontSize: '0.63rem', letterSpacing: '0.1em',
-            textTransform: 'uppercase', padding: '0.7rem 0', background: 'none', border: 'none',
-            borderBottom: `2px solid ${tab === v ? 'var(--amber)' : 'transparent'}`,
-            color: tab === v ? 'var(--amber)' : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s',
-          }}>{l}</button>
-        ))}
+        <button style={tabBtn(tab === 'mood')}   onClick={() => setTab('mood')}>📅 心情日記</button>
+        <button style={tabBtn(tab === 'future')} onClick={() => setTab('future')}>📮 寫給未來</button>
       </div>
 
-      {tab === 'mood'   && <MoodDiary API={API} />}
+      {tab === 'mood'   && <MoodDiary   API={API} />}
       {tab === 'future' && <FutureLetters API={API} />}
     </div>
   );

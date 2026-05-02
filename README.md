@@ -1,225 +1,233 @@
-# Quotes Hub
+# 語境 Yu境
 
-一個全端名言管理平台，專注於提供結構化的語錄瀏覽、收藏與個人化管理體驗。此專案結合現代前後端技術，實作完整的使用者驗證流程、資料持久化與安全機制，適合作為全端應用開發的實務範例。
+> 那些無法言說的，都藏在別人的句子裡
 
-線上預覽（Live Demo）：
-https://quoteshub.onrender.com/
-
----
-
-## 專案目標
-
-Quotes Hub 的核心目標不只是展示語錄內容，而是建立一個具備以下能力的應用系統：
-
-* 提供穩定且可擴展的 API 架構
-* 實作安全的使用者驗證與授權機制
-* 支援使用者個人化資料（收藏、管理）
-* 建立清晰的前後端分離架構
-* 作為可部署的實際產品，而非僅限於學習用途
+一個深色文青風格的語錄分享平台，支援用戶投稿、AI 生成語錄、社群互動、個人日記與情緒分析。
 
 ---
 
-## 功能說明（詳細）
+## 功能總覽
 
-### 使用者系統（Authentication & Authorization）
+### 🏠 主頁
+- 語錄牆：深藍色卡片式佈局，支援 hover 動效
+- 搜尋：導覽列放大鏡圖示，點擊展開搜尋欄
+- 標籤篩選、排序（最新 / 最多讚）
+- 分頁瀏覽
 
-* 使用者註冊與登入（Email / Password）
-* JWT Token 發行與驗證機制
-* Token 儲存與自動附加於 API 請求（Authorization Header）
-* Google OAuth 登入整合（快速登入流程）
-* 登出機制（前端 Token 清除）
-* 基本權限控管（僅登入用戶可操作收藏功能）
+### 📝 語錄卡片
+- 按讚 ❤、收藏 🔖
+- 💬 **留言區**：可新增、編輯、刪除自己的留言
+- ⚖ **辯論專區**：選擇「認同 / 不認同」立場發表，附計分板與按讚
+- 🖼 **海報產生器**：8 種主題配色 × 2 種字體，Canvas 渲染，一鍵下載 PNG
 
----
+### 👤 用戶功能
+| 功能 | 說明 |
+|------|------|
+| 電子郵件 / Google 登入 | 密碼欄位支援顯示 / 隱藏切換 |
+| 個人資料 | 修改用戶名、Email |
+| 自訂頭像 | 30 種 emoji 頭像選擇器 |
+| 我的投稿 | 查看投稿狀態，可編輯（退回審核）或撤回待審語錄 |
+| 已收藏 / 已按讚 | 快速瀏覽互動過的語錄 |
+| 修改密碼 | 需輸入舊密碼確認 |
+| 聯絡管理員 | 一鍵開啟 Gmail 寄信 |
 
-### 語錄瀏覽系統（Quotes Browsing）
+### 🧬 語錄 DNA（`/dna`）
+分析你收藏與按讚的語錄，生成個人語錄人格報告：
+- 15 種語錄人格（深思者、靈魂流浪者、浪漫主義者...）
+- 品味稀有度環形進度條（0–100 分）
+- 最共鳴主題標籤雲（字體大小依頻率變化）
+- 語句長度偏好分析
+- 最常共鳴的作者排行
 
-* 從後端 API 動態取得語錄資料
-* 支援隨機語錄顯示（Random Quote）
-* 可擴展為：
+> 需至少 3 則收藏或按讚才能生成
 
-  * 分類（Category-based filtering）
-  * 作者（Author filtering）
-  * 關鍵字搜尋（Keyword search）
-* 前端非同步資料載入（避免阻塞 UI）
-* 錯誤處理與 fallback UI（例如 API 失敗時提示）
+### 🌡 社群情緒地圖（`/mood-map`）
+根據所有用戶心情日記的匿名統計：
+- 今日情緒泡泡圖（泡泡大小＝人數比例）
+- 正向 / 中性 / 低落三段比例條
+- 7 / 14 / 30 天情緒走勢折線圖（正面指數）
 
----
+### 📓 我的日記（`/diary`，私密）
 
-### 收藏系統（Favorites Management）
+**心情日記**：每天記錄一則，包含：
+- 10 種心情 emoji + 6 種天氣
+- 日記內文與關鍵字標籤
+- 歷史列表（點擊跳回該日）
 
-* 使用者可將語錄加入收藏
-* 防止重複收藏（透過後端驗證）
-* 取得個人收藏列表（User-specific data isolation）
-* 刪除收藏語錄
-* 收藏狀態同步（前端 UI 與後端資料一致）
+**寫給未來的信**：
+- 設定開封日期（必須是未來）
+- 到期自動解封，解封前無法閱讀內容
+- 顯示倒數天數
 
----
-
-### API 與資料流設計
-
-* 前端透過 Axios 呼叫 RESTful API
-* API 分層設計：
-
-  * `/api/auth`：身份驗證
-  * `/api/quotes`：語錄資料
-  * `/api/favorites`：收藏管理
-* 使用 middleware 驗證 JWT Token
-* 統一錯誤處理（Error Handling Middleware）
-* JSON 格式資料傳輸
-
----
-
-### 安全機制（Security Features）
-
-* bcrypt 密碼雜湊（避免明文儲存）
-* JWT 驗證避免 session 劫持問題
-* Rate Limiting（防止暴力攻擊與濫用）
-* 環境變數管理敏感資訊（.env）
-* 基本輸入驗證（避免惡意請求）
-* CORS 設定（控制跨來源請求）
-
----
-
-### 使用者體驗（UX Enhancements）
-
-* 即時 UI 更新（收藏/取消收藏不需重新整理）
-* Loading 狀態提示（提升互動回饋）
-* 錯誤提示訊息（登入失敗、API 錯誤）
-* 簡潔直觀的操作流程
-* 響應式設計（可擴展至行動裝置）
-
----
-
-### 系統穩定性與可維護性
-
-* 模組化後端架構（routes / controllers / models）
-* 清楚的資料責任分離（Separation of Concerns）
-* 可擴展 API 設計（方便新增功能）
-* 前後端獨立開發與部署
+### 🛡 管理後台（`/admin`，需管理員角色）
+- 儀表板：語錄數、用戶數、待審核數統計
+- 語錄審核：通過 / 拒絕 / 永久刪除
+- 全部語錄管理（依狀態篩選）
+- 用戶管理：設定 / 取消管理員權限
 
 ---
 
 ## 技術架構
 
-### 前端（Client）
-
-* React（SPA 架構）
-* Axios（HTTP Client）
-* Hooks / Context（狀態管理）
-
-### 後端（Server）
-
-* Node.js
-* Express
-* MongoDB
-* Mongoose
-
-### 驗證與安全
-
-* JWT（JSON Web Token）
-* bcrypt
-* Google OAuth 2.0
+| 層級 | 技術 |
+|------|------|
+| 前端 | React 18 + Vite + React Router v6 |
+| 後端 | Node.js + Express |
+| 資料庫 | MongoDB Atlas（Mongoose ODM） |
+| 認證 | JWT + Google OAuth 2.0 |
+| AI | Anthropic Claude API（語錄生成）|
+| 海報 | HTML5 Canvas |
 
 ---
 
-## 系統設計重點
+## 快速開始
 
-### 1. RESTful API 設計
+### 環境需求
+- Node.js v18 以上
+- npm v8 以上
 
-資源導向設計，將使用者、語錄與收藏拆分為獨立 API，提高可讀性與維護性。
+### 1. 安裝依賴
 
-### 2. 無狀態驗證
-
-使用 JWT 進行驗證，使系統更易於水平擴展（Horizontal Scaling）。
-
-### 3. 模組化架構
-
-將後端邏輯拆分，避免單一檔案過度複雜。
-
-### 4. 資料一致性
-
-透過後端驗證機制確保收藏資料不重複且正確。
-
----
-
-## 安裝與執行
-
-### 1. 下載專案
-
-```bash id="2f9n9m"
-git clone https://github.com/your-username/quotes-app.git
-cd quotes-app
+```bash
+cd backend && npm install
+cd ../frontend && npm install
 ```
 
-### 2. 安裝依賴
+### 2. 設定環境變數
 
-```bash id="z0yy3m"
-npm run install:all
-```
-
-### 3. 設定環境變數
-
-```env id="w6y6kp"
+`backend/.env`：
+```env
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/quotes?retryWrites=true&w=majority&appName=<AppName>
+JWT_SECRET=your_strong_random_secret
+ANTHROPIC_API_KEY=sk-ant-...        # 選填，AI 語錄生成
+GOOGLE_CLIENT_ID=...googleusercontent.com  # 選填，Google 登入
 PORT=5000
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret
-GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
-### 4. 啟動開發模式
-
-```bash id="v5cs3z"
-npm run dev
+`frontend/.env`：
+```env
+VITE_GOOGLE_CLIENT_ID=...googleusercontent.com
 ```
 
-### 5. 啟動正式環境
+### 3. 啟動
 
-```bash id="y8pp8n"
-npm start
+```bash
+# 終端機 1
+cd backend && npm start        # http://localhost:5000
+
+# 終端機 2
+cd frontend && npm run dev     # http://localhost:3000
+```
+
+---
+
+## 設定第一個管理員
+
+1. 在網站上註冊帳號
+2. 登入 [MongoDB Atlas](https://cloud.mongodb.com) → `quotes` 資料庫 → `users` collection
+3. 找到你的帳號 → 編輯 → 新增欄位 `role`，值 `"admin"`（String）
+4. 儲存，重新整理網站即可看到「管理」連結
+
+---
+
+## API 金鑰取得
+
+### Anthropic（選填）
+1. [console.anthropic.com](https://console.anthropic.com) → 建立 API Key
+2. 填入 `ANTHROPIC_API_KEY`
+
+### Google OAuth（選填）
+1. [Google Cloud Console](https://console.cloud.google.com) → API & Services → 憑證 → OAuth 2.0 用戶端 ID
+2. 應用程式類型：網頁應用程式
+3. 已授權 JavaScript 來源：`http://localhost:3000`
+4. 複製 Client ID 填入前後端 `.env`
+
+---
+
+## 部署到 Render
+
+### 後端（Web Service）
+| 欄位 | 值 |
+|------|-----|
+| Root Directory | `backend` |
+| Build Command | `npm install` |
+| Start Command | `node server.js` |
+
+在 Environment 頁籤填入 `.env` 所有變數。
+
+### 前端（Static Site）
+| 欄位 | 值 |
+|------|-----|
+| Root Directory | `frontend` |
+| Build Command | `npm install && npm run build` |
+| Publish Directory | `dist` |
+
+建立 `frontend/.env.production`：
+```env
+VITE_API_URL=https://你的後端服務名.onrender.com
+```
+
+並修改 `frontend/src/context/AuthContext.jsx` 的 API baseURL：
+```js
+const API = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api'
+});
 ```
 
 ---
 
 ## 專案結構
 
-```id="h3t9xq"
+```
 quotes-app/
-│
 ├── backend/
-│   ├── controllers/
+│   ├── middleware/auth.js
 │   ├── models/
+│   │   ├── User.js
+│   │   ├── Quote.js          # 含留言、辯論留言 schema
+│   │   └── Diary.js          # 心情日記 + 未來的信
 │   ├── routes/
-│   ├── middleware/
+│   │   ├── auth.js           # 登入、註冊、Google OAuth
+│   │   ├── quotes.js         # 語錄 CRUD、留言、辯論
+│   │   ├── user.js           # 個人資料、密碼、頭像
+│   │   ├── admin.js          # 管理後台
+│   │   ├── ai.js             # AI 語錄生成
+│   │   ├── diary.js          # 日記 API
+│   │   └── analytics.js      # DNA + 情緒地圖
 │   └── server.js
 │
-├── frontend/
-│   ├── src/
-│   └── public/
-│
-├── package.json
+└── frontend/src/
+    ├── components/
+    │   ├── Navbar.jsx         # 導覽列 + 展開搜尋
+    │   ├── QuoteCard.jsx      # 語錄卡（留言、辯論、海報）
+    │   ├── PosterModal.jsx    # Canvas 海報產生器
+    │   ├── AuthModal.jsx      # 登入 / 註冊
+    │   └── SubmitQuotePanel.jsx
+    ├── pages/
+    │   ├── HomePage.jsx
+    │   ├── ProfilePage.jsx    # 個人資料 + DNA 連結
+    │   ├── DiaryPage.jsx      # 心情日記 + 未來的信
+    │   ├── DNAPage.jsx        # 語錄人格分析
+    │   ├── MoodMapPage.jsx    # 社群情緒地圖
+    │   └── AdminPage.jsx
+    ├── context/
+    │   ├── AuthContext.jsx
+    │   └── ToastContext.jsx
+    ├── App.jsx
+    └── index.css
 ```
 
 ---
 
-## 部署
+## 注意事項
 
-https://quoteshub.onrender.com/
+- `.env` 已加入 `.gitignore`，請勿上傳至 Git
+- 心情日記完全私密，情緒地圖只統計匿名數字，不顯示個人資訊
+- 用戶投稿需管理員審核才會公開；AI 生成語錄自動通過審核
+- 語錄 DNA 需至少 3 則互動記錄才能分析
 
 ---
 
-## 可擴展方向
+## 聯絡
 
-### 功能擴展
-
-* 語錄分類 / 標籤系統
-* 搜尋與排序功能
-* 社群互動（留言、按讚）
-* 使用者個人頁面
-
-### 技術優化
-
-* TypeScript 重構
-* Redis 快取
-* Swagger API 文件
-* 單元測試與整合測試
+有任何問題或建議，請聯絡管理員：[yihan970317@gmail.com](mailto:yihan970317@gmail.com)
