@@ -95,11 +95,9 @@ function EditQuoteModal({ quote, onClose, onSaved }) {
   );
 }
 
-function QuoteRow({ quote: initial, onDelete, showStatus, editable }) {
+function QuoteRow({ quote: initial, onDelete, editable }) {
   const [quote, setQuote] = useState(initial);
   const [showEdit, setShowEdit] = useState(false);
-  const statusMap = { pending: { label: '審核中', color: 'var(--amber)' }, approved: { label: '已通過', color: '#6abf80' }, rejected: { label: '已拒絕', color: 'var(--rose)' } };
-  const s = statusMap[quote.status] || statusMap.pending;
 
   return (
     <>
@@ -116,13 +114,20 @@ function QuoteRow({ quote: initial, onDelete, showStatus, editable }) {
             <span>— {quote.author}</span>
             {quote.tags?.length > 0 && <span>{quote.tags.map(t => `#${t}`).join(' ')}</span>}
             <span>❤ {quote.likes?.length || 0} · 🔖 {quote.saves?.length || 0}</span>
-            {showStatus && <span style={{ color: s.color }}>{s.label}</span>}
             <span style={{ opacity: 0.45 }}>{new Date(quote.createdAt).toLocaleDateString('zh-TW')}</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-          {editable && <button onClick={() => setShowEdit(true)} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--amber)', cursor: 'pointer', borderRadius: '2px', padding: '0.25rem 0.6rem', fontFamily: "'Space Mono', monospace", fontSize: '0.58rem' }}>編輯</button>}
-          {onDelete && quote.status === 'pending' && <button onClick={() => onDelete(quote._id)} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--rose)', cursor: 'pointer', borderRadius: '2px', padding: '0.25rem 0.6rem', fontFamily: "'Space Mono', monospace", fontSize: '0.58rem' }}>撤回</button>}
+          {editable && (
+            <button onClick={() => setShowEdit(true)} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--amber)', cursor: 'pointer', borderRadius: '2px', padding: '0.25rem 0.6rem', fontFamily: "'Space Mono', monospace", fontSize: '0.58rem' }}>
+              編輯
+            </button>
+          )}
+          {onDelete && (
+            <button onClick={() => onDelete(quote._id)} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--rose)', cursor: 'pointer', borderRadius: '2px', padding: '0.25rem 0.6rem', fontFamily: "'Space Mono', monospace", fontSize: '0.58rem' }}>
+              刪除
+            </button>
+          )}
         </div>
       </div>
       {showEdit && <EditQuoteModal quote={quote} onClose={() => setShowEdit(false)} onSaved={updated => setQuote(prev => ({ ...prev, ...updated }))} />}
@@ -180,12 +185,12 @@ export default function ProfilePage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('確定要撤回這則語錄嗎？')) return;
+    if (!confirm('確定要刪除這則語錄嗎？')) return;
     try {
       await API.delete(`/user/quotes/${id}`);
-      addToast('已撤回', 'success');
+      addToast('已刪除', 'success');
       fetchProfile();
-    } catch (e) { addToast(e.response?.data?.message || '撤回失敗', 'error'); }
+    } catch (e) { addToast(e.response?.data?.message || '刪除失敗', 'error'); }
   };
 
   const handleProfileSave = async (e) => {
@@ -363,7 +368,7 @@ export default function ProfilePage() {
               ? <div style={{ padding: '3rem', textAlign: 'center', fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', color: 'var(--text-muted)', letterSpacing: '0.08em' }}>{emptyMap[tab]}</div>
               : listMap[tab].map(q => (
                 <QuoteRow key={q._id} quote={q}
-                  showStatus={tab === 'myQuotes'} editable={tab === 'myQuotes'}
+                  editable={tab === 'myQuotes'}
                   onDelete={tab === 'myQuotes' ? handleDelete : null} />
               ))
           }

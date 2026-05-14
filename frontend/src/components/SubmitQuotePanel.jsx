@@ -16,12 +16,12 @@ export default function SubmitQuotePanel({ onSubmitted, onAuthRequired }) {
     try {
       const tags = form.tags.split(/[,，\s]+/).filter(Boolean).map(t => t.toLowerCase().replace('#', ''));
       await API.post('/quotes', { content: form.content, author: form.author, tags });
-      addToast('語錄已提交，等待管理員審核', 'success');
+      addToast('語錄已發布！', 'success');
       setForm({ content: '', author: '', tags: '' });
       setExpanded(false);
       onSubmitted?.();
     } catch (e) {
-      addToast(e.response?.data?.message || '提交失敗', 'error');
+      addToast(e.response?.data?.message || '發布失敗', 'error');
     } finally {
       setLoading(false);
     }
@@ -29,16 +29,30 @@ export default function SubmitQuotePanel({ onSubmitted, onAuthRequired }) {
 
   if (!expanded) {
     return (
-      <div className="submit-panel" style={{ cursor: 'pointer' }} onClick={() => user ? setExpanded(true) : onAuthRequired()}>
+      <div className="submit-panel" style={{ cursor: 'pointer', marginBottom: '2rem' }}
+        onClick={() => user ? setExpanded(true) : onAuthRequired()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div className="user-avatar" style={{ width: '36px', height: '36px' }}>
-            {user?.avatar ? <img src={user.avatar} alt={user.username} /> : user?.username?.[0]?.toUpperCase() || '?'}
+          <div className="user-avatar" style={{ width: '36px', height: '36px', flexShrink: 0 }}>
+            {user?.avatarEmoji
+              ? <span style={{ fontSize: '1.1rem' }}>{user.avatarEmoji}</span>
+              : user?.avatar
+                ? <img src={user.avatar} alt={user.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : user?.username?.[0]?.toUpperCase() || '?'}
           </div>
-          <div className="search-input" style={{ flex: 1, cursor: 'text', color: 'var(--muted)' }}>
+          <div style={{
+            flex: 1, padding: '0.6rem 1rem',
+            background: 'var(--bg-3)', border: '1px solid var(--border)',
+            borderRadius: '2px', cursor: 'text',
+            color: 'var(--text-muted)', fontFamily: "'Space Mono', monospace", fontSize: '0.72rem',
+            letterSpacing: '0.04em',
+          }}>
             {user ? '分享一句觸動你的話...' : '登入後投稿你的語錄'}
           </div>
-          <button className="submit-btn" style={{ width: 'auto', padding: '0.5rem 1.2rem' }}
-            onClick={e => { e.stopPropagation(); user ? setExpanded(true) : onAuthRequired(); }}>
+          <button
+            className="submit-btn"
+            style={{ width: 'auto', padding: '0.5rem 1.2rem' }}
+            onClick={e => { e.stopPropagation(); user ? setExpanded(true) : onAuthRequired(); }}
+          >
             投稿
           </button>
         </div>
@@ -47,15 +61,18 @@ export default function SubmitQuotePanel({ onSubmitted, onAuthRequired }) {
   }
 
   return (
-    <div className="submit-panel">
+    <div className="submit-panel" style={{ marginBottom: '2rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-        <h3>投稿語錄</h3>
-        <button onClick={() => setExpanded(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.1rem' }}>✕</button>
+        <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '0.95rem', color: 'var(--text)', letterSpacing: '0.04em' }}>
+          投稿語錄
+        </div>
+        <button onClick={() => setExpanded(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '1rem' }}>✕</button>
       </div>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label className="form-label">語錄內容 *</label>
-          <textarea className="form-textarea" placeholder="輸入你想分享的語錄、名言或金句..."
+          <textarea className="form-textarea"
+            placeholder="輸入你想分享的語錄、名言或金句..."
             value={form.content} required minLength={5}
             onChange={e => setForm({ ...form, content: e.target.value })} />
         </div>
@@ -71,15 +88,14 @@ export default function SubmitQuotePanel({ onSubmitted, onAuthRequired }) {
         </div>
         <div style={{ display: 'flex', gap: '0.8rem' }}>
           <button className="submit-btn" type="submit" disabled={loading}>
-            {loading ? '提交中...' : '提交語錄'}
+            {loading ? '發布中...' : '發布語錄'}
           </button>
-          <button type="button" onClick={() => setExpanded(false)}
-            style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.75rem', padding: '0.85rem 1.2rem', background: 'none', border: '1px solid var(--border)', borderRadius: '2px', cursor: 'pointer', color: 'var(--muted)' }}>
-            取消
-          </button>
-        </div>
-        <div style={{ marginTop: '0.8rem', fontFamily: "'Space Mono', monospace", fontSize: '0.65rem', color: 'var(--muted)' }}>
-          * 投稿內容將由管理員審核後發佈
+          <button type="button" onClick={() => setExpanded(false)} style={{
+            fontFamily: "'Space Mono', monospace", fontSize: '0.72rem',
+            padding: '0.85rem 1.2rem', background: 'none',
+            border: '1px solid var(--border)', borderRadius: '2px',
+            cursor: 'pointer', color: 'var(--text-muted)',
+          }}>取消</button>
         </div>
       </form>
     </div>

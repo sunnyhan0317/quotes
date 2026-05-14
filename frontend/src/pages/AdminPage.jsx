@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Navigate } from 'react-router-dom';
 
+/* 統計卡 */
 function StatsPanel({ API }) {
   const [stats, setStats] = useState(null);
   useEffect(() => {
@@ -15,11 +16,8 @@ function StatsPanel({ API }) {
       <h2 className="admin-title">儀表板</h2>
       <div className="stat-cards">
         {[
-          { label: '總語錄', num: stats.total, color: 'var(--ink)' },
-          { label: '待審核', num: stats.pending, color: '#856404' },
-          { label: '已通過', num: stats.approved, color: '#0f5132' },
-          { label: '已拒絕', num: stats.rejected, color: '#842029' },
-          { label: '總用戶', num: stats.users, color: 'var(--accent)' },
+          { label: '總語錄', num: stats.total, color: 'var(--amber)' },
+          { label: '總用戶', num: stats.users, color: '#6abf80' },
         ].map(s => (
           <div className="stat-card" key={s.label}>
             <span className="stat-num" style={{ color: s.color }}>{s.num}</span>
@@ -31,104 +29,109 @@ function StatsPanel({ API }) {
   );
 }
 
-function QuotesTable({ API, statusFilter }) {
+/* 語錄管理 */
+function QuotesTable({ API }) {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const { addToast } = useToast();
 
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
-      const params = statusFilter ? `?status=${statusFilter}` : '';
-      const endpoint = statusFilter === 'pending' ? '/admin/pending' : `/admin/all${params}`;
-      const r = await API.get(endpoint);
+      const r = await API.get(`/admin/all?page=${page}&limit=20`);
       setQuotes(r.data.quotes);
       setTotal(r.data.total);
     } catch { addToast('載入失敗', 'error'); }
     finally { setLoading(false); }
-  }, [statusFilter]);
+  }, [page]);
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  const action = async (id, type) => {
+  const handleDelete = async (id) => {
+    if (!confirm('確定要永久刪除這則語錄？此操作無法還原。')) return;
     try {
-      if (type === 'delete') {
-        if (!confirm('確定要永久刪除這則語錄？')) return;
-        await API.delete(`/admin/${id}`);
-        addToast('已刪除', 'success');
-      } else {
-        await API.patch(`/admin/${id}/${type}`);
-        addToast(type === 'approve' ? '已通過審核' : '已拒絕', 'success');
-      }
+      await API.delete(`/admin/${id}`);
+      addToast('已刪除', 'success');
       fetch();
-    } catch { addToast('操作失敗', 'error'); }
+    } catch { addToast('刪除失敗', 'error'); }
   };
 
-  const titles = { pending: '待審核語錄', approved: '已通過語錄', rejected: '已拒絕語錄', '': '全部語錄' };
+  const totalPages = Math.ceil(total / 20);
 
   return (
     <div>
-      <h2 className="admin-title">{titles[statusFilter] || '語錄管理'} <span style={{ fontFamily: "'Space Mono', monospace", fontSize: '1rem', color: 'var(--muted)' }}>({total})</span></h2>
+      <h2 className="admin-title">
+        語錄管理
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.9rem', color: 'var(--text-muted)', marginLeft: '0.8rem' }}>
+          ({total})
+        </span>
+      </h2>
       {loading ? <div className="loading">載入中</div> : (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th style={{ width: '35%' }}>語錄內容</th>
-                <th>作者</th>
-                <th>投稿者</th>
-                <th>來源</th>
-                <th>狀態</th>
-                <th>標籤</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quotes.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--muted)', fontFamily: "'Space Mono', monospace", fontSize: '0.8rem' }}>沒有資料</td></tr>
-              )}
-              {quotes.map(q => (
-                <tr key={q._id}>
-                  <td style={{ maxWidth: '300px' }}>
-                    <div style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>{q.content}</div>
-                  </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{q.author}</td>
-                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: 'var(--muted)', fontFamily: "'Space Mono', monospace" }}>
-                    {q.submittedBy?.username || q.submittedByName || '-'}
-                  </td>
-                  <td>
-                    <span className={`badge badge-${q.source}`}>{q.source === 'ai' ? 'AI' : '用戶'}</span>
-                  </td>
-                  <td>
-                    <span className={`badge badge-${q.status}`}>
-                      {q.status === 'pending' ? '待審核' : q.status === 'approved' ? '已通過' : '已拒絕'}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                    {q.tags?.join(', ') || '-'}
-                  </td>
-                  <td>
-                    <div className="action-btns">
-                      {q.status !== 'approved' && (
-                        <button className="btn-approve" onClick={() => action(q._id, 'approve')}>通過</button>
-                      )}
-                      {q.status !== 'rejected' && (
-                        <button className="btn-reject" onClick={() => action(q._id, 'reject')}>拒絕</button>
-                      )}
-                      <button className="btn-delete" onClick={() => action(q._id, 'delete')}>刪除</button>
-                    </div>
-                  </td>
+        <>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '40%' }}>語錄內容</th>
+                  <th>作者</th>
+                  <th>投稿者</th>
+                  <th>標籤</th>
+                  <th>日期</th>
+                  <th>操作</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {quotes.length === 0 && (
+                  <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', fontFamily: "'Space Mono', monospace", fontSize: '0.8rem', padding: '2rem' }}>沒有語錄</td></tr>
+                )}
+                {quotes.map(q => (
+                  <tr key={q._id}>
+                    <td>
+                      <div style={{ fontSize: '0.85rem', lineHeight: 1.6, color: 'var(--text)' }}>
+                        {q.content.length > 80 ? q.content.slice(0, 80) + '...' : q.content}
+                      </div>
+                    </td>
+                    <td style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{q.author}</td>
+                    <td style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      {q.submittedBy?.username || q.submittedByName || '-'}
+                    </td>
+                    <td style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      {q.tags?.join(', ') || '-'}
+                    </td>
+                    <td style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {new Date(q.createdAt).toLocaleDateString('zh-TW')}
+                    </td>
+                    <td>
+                      <button className="btn-delete" onClick={() => handleDelete(q._id)}>
+                        刪除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 分頁 */}
+          {totalPages > 1 && (
+            <div className="pagination" style={{ marginTop: '1.5rem' }}>
+              <button className="page-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹</button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const p = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
+                return <button key={p} className={`page-btn ${p === page ? 'active' : ''}`} onClick={() => setPage(p)}>{p}</button>;
+              })}
+              <button className="page-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>›</button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
+/* 用戶管理 */
 function UsersTable({ API }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -136,21 +139,30 @@ function UsersTable({ API }) {
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
-    API.get('/admin/users').then(r => setUsers(r.data)).catch(() => {}).finally(() => setLoading(false));
+    API.get('/admin/users')
+      .then(r => setUsers(r.data))
+      .catch(() => addToast('載入失敗', 'error'))
+      .finally(() => setLoading(false));
   }, []);
 
   const toggleRole = async (id, role) => {
     const newRole = role === 'admin' ? 'user' : 'admin';
+    if (!confirm(`確定要將此用戶${newRole === 'admin' ? '升為管理員' : '降為一般用戶'}？`)) return;
     try {
       const r = await API.patch(`/admin/users/${id}/role`, { role: newRole });
       setUsers(prev => prev.map(u => u._id === id ? r.data : u));
-      addToast(`角色已更新為 ${newRole}`, 'success');
+      addToast(`已更新為 ${newRole}`, 'success');
     } catch { addToast('操作失敗', 'error'); }
   };
 
   return (
     <div>
-      <h2 className="admin-title">用戶管理 <span style={{ fontFamily: "'Space Mono', monospace", fontSize: '1rem', color: 'var(--muted)' }}>({users.length})</span></h2>
+      <h2 className="admin-title">
+        用戶管理
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.9rem', color: 'var(--text-muted)', marginLeft: '0.8rem' }}>
+          ({users.length})
+        </span>
+      </h2>
       {loading ? <div className="loading">載入中</div> : (
         <div style={{ overflowX: 'auto' }}>
           <table className="admin-table">
@@ -167,19 +179,28 @@ function UsersTable({ API }) {
             <tbody>
               {users.map(u => (
                 <tr key={u._id}>
-                  <td style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.8rem' }}>{u.username}</td>
-                  <td style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{u.email}</td>
-                  <td><span className={`badge ${u.role === 'admin' ? 'badge-approved' : 'badge-user'}`}>{u.role}</span></td>
-                  <td style={{ fontSize: '0.75rem', color: 'var(--muted)', fontFamily: "'Space Mono', monospace" }}>
+                  <td style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.8rem', color: 'var(--text)' }}>
+                    {u.avatarEmoji && <span style={{ marginRight: '0.4rem' }}>{u.avatarEmoji}</span>}
+                    {u.username}
+                  </td>
+                  <td style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{u.email}</td>
+                  <td>
+                    <span className={`badge ${u.role === 'admin' ? 'badge-approved' : 'badge-user'}`}>
+                      {u.role === 'admin' ? '管理員' : '用戶'}
+                    </span>
+                  </td>
+                  <td style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                     {u.googleId ? 'Google' : '電子郵件'}
                   </td>
-                  <td style={{ fontSize: '0.75rem', color: 'var(--muted)', fontFamily: "'Space Mono', monospace" }}>
+                  <td style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                     {new Date(u.createdAt).toLocaleDateString('zh-TW')}
                   </td>
                   <td>
                     {u._id !== currentUser.id && (
-                      <button className={u.role === 'admin' ? 'btn-delete' : 'btn-approve'}
-                        onClick={() => toggleRole(u._id, u.role)}>
+                      <button
+                        className={u.role === 'admin' ? 'btn-delete' : 'btn-approve'}
+                        onClick={() => toggleRole(u._id, u.role)}
+                      >
                         {u.role === 'admin' ? '降為用戶' : '升為管理員'}
                       </button>
                     )}
@@ -194,6 +215,7 @@ function UsersTable({ API }) {
   );
 }
 
+/* 主頁面 */
 export default function AdminPage() {
   const { user, API } = useAuth();
   const [section, setSection] = useState('dashboard');
@@ -201,40 +223,36 @@ export default function AdminPage() {
   if (!user) return <Navigate to="/" replace />;
   if (user.role !== 'admin') return (
     <div className="container" style={{ paddingTop: '4rem', textAlign: 'center' }}>
-      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '2rem', marginBottom: '1rem' }}>無權限</div>
-      <div style={{ color: 'var(--muted)', fontFamily: "'Space Mono', monospace", fontSize: '0.8rem' }}>需要管理員權限才能存取此頁面</div>
+      <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--text)' }}>無權限</div>
+      <div style={{ color: 'var(--text-muted)', fontFamily: "'Space Mono', monospace", fontSize: '0.75rem' }}>需要管理員權限才能存取此頁面</div>
     </div>
   );
 
   const navItems = [
     { key: 'dashboard', label: '儀表板' },
-    { key: 'pending', label: '待審核' },
-    { key: 'approved', label: '已通過' },
-    { key: 'rejected', label: '已拒絕' },
-    { key: 'all', label: '全部語錄' },
-    { key: 'users', label: '用戶管理' },
+    { key: 'quotes',    label: '語錄管理' },
+    { key: 'users',     label: '用戶管理' },
   ];
 
   return (
     <div className="admin-layout">
       <div className="admin-sidebar">
-        <div style={{ padding: '1rem 1.5rem 1.5rem', fontFamily: "'Playfair Display', serif", fontSize: '1.1rem', color: 'rgba(245,240,232,0.4)', borderBottom: '1px solid rgba(245,240,232,0.08)' }}>
+        <div style={{ padding: '1rem 1.5rem 1.2rem', fontFamily: "'Noto Serif TC', serif", fontSize: '1rem', color: 'rgba(245,240,232,0.3)', borderBottom: '1px solid rgba(245,240,232,0.06)' }}>
           管理後台
         </div>
         {navItems.map(n => (
-          <button key={n.key} className={`admin-nav-item ${section === n.key ? 'active' : ''}`}
-            onClick={() => setSection(n.key)}>
+          <button key={n.key}
+            className={`admin-nav-item ${section === n.key ? 'active' : ''}`}
+            onClick={() => setSection(n.key)}
+          >
             {n.label}
           </button>
         ))}
       </div>
       <div className="admin-content">
         {section === 'dashboard' && <StatsPanel API={API} />}
-        {section === 'pending' && <QuotesTable API={API} statusFilter="pending" />}
-        {section === 'approved' && <QuotesTable API={API} statusFilter="approved" />}
-        {section === 'rejected' && <QuotesTable API={API} statusFilter="rejected" />}
-        {section === 'all' && <QuotesTable API={API} statusFilter="" />}
-        {section === 'users' && <UsersTable API={API} />}
+        {section === 'quotes'    && <QuotesTable API={API} />}
+        {section === 'users'     && <UsersTable API={API} />}
       </div>
     </div>
   );

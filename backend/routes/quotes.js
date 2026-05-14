@@ -5,10 +5,11 @@ const { protect } = require('../middleware/auth');
 
 const CARD_COLOR = '#0f1f3d';
 
+// 取得所有語錄（不再篩選 status）
 router.get('/', async (req, res) => {
   try {
     const { tag, search, page = 1, limit = 12, sort = 'new' } = req.query;
-    const query = { status: 'approved' };
+    const query = {};
     if (tag) query.tags = tag;
     if (search) query.$or = [
       { content: { $regex: search, $options: 'i' } },
@@ -26,10 +27,10 @@ router.get('/', async (req, res) => {
   } catch (err) { res.status(500).json({ message: '伺服器錯誤' }); }
 });
 
+// 熱門標籤
 router.get('/tags', async (req, res) => {
   try {
     const tags = await Quote.aggregate([
-      { $match: { status: 'approved' } },
       { $unwind: '$tags' },
       { $group: { _id: '$tags', count: { $sum: 1 } } },
       { $sort: { count: -1 } }, { $limit: 20 }
@@ -38,19 +39,26 @@ router.get('/tags', async (req, res) => {
   } catch (err) { res.status(500).json({ message: '伺服器錯誤' }); }
 });
 
+// 投稿語錄 — 直接 approved，不需要審核
 router.post('/', protect, async (req, res) => {
   try {
     const { content, author, tags } = req.body;
     if (!content) return res.status(400).json({ message: '語錄內容不能為空' });
     const quote = await Quote.create({
-      content, author: author || req.user.username,
-      tags: tags || [], submittedBy: req.user._id,
-      submittedByName: req.user.username, bgColor: CARD_COLOR, status: 'pending'
+      content,
+      author: author || req.user.username,
+      tags: tags || [],
+      submittedBy: req.user._id,
+      submittedByName: req.user.username,
+      bgColor: CARD_COLOR,
+      status: 'approved', // 直接公開，無需審核
+      source: 'user',
     });
-    res.status(201).json({ quote, message: '語錄已提交，等待審核' });
+    res.status(201).json({ quote, message: '語錄已發布！' });
   } catch (err) { res.status(500).json({ message: '伺服器錯誤' }); }
 });
 
+// 按讚/取消
 router.post('/:id/like', protect, async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id);
@@ -63,6 +71,7 @@ router.post('/:id/like', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ message: '伺服器錯誤' }); }
 });
 
+// 收藏/取消
 router.post('/:id/save', protect, async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id);
@@ -97,6 +106,7 @@ router.post('/:id/comment', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ message: '伺服器錯誤' }); }
 });
 
+// 編輯留言
 router.patch('/:id/comment/:commentId', protect, async (req, res) => {
   try {
     const { text } = req.body;
@@ -113,6 +123,7 @@ router.patch('/:id/comment/:commentId', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ message: '伺服器錯誤' }); }
 });
 
+// 刪除留言
 router.delete('/:id/comment/:commentId', protect, async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id);
@@ -143,6 +154,7 @@ router.post('/:id/debate', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ message: '伺服器錯誤' }); }
 });
 
+// 辯論留言按讚
 router.post('/:id/debate/:debateId/like', protect, async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id);
@@ -157,6 +169,7 @@ router.post('/:id/debate/:debateId/like', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ message: '伺服器錯誤' }); }
 });
 
+// 刪除辯論留言
 router.delete('/:id/debate/:debateId', protect, async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id);
@@ -171,14 +184,17 @@ router.delete('/:id/debate/:debateId', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ message: '伺服器錯誤' }); }
 });
 
+// 取得單一語錄
 router.get('/:id', async (req, res) => {
   try {
-    const quote = await Quote.findById(req.params.id).populate('submittedBy', 'username avatar avatarEmoji');
+    const quote = await Quote.findById(req.params.id)
+      .populate('submittedBy', 'username avatar avatarEmoji');
     if (!quote) return res.status(404).json({ message: '語錄不存在' });
     res.json(quote);
   } catch (err) { res.status(500).json({ message: '伺服器錯誤' }); }
 });
 
+// 編輯語錄（發布者）— 不再退回審核
 router.patch('/:id', protect, async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id);
@@ -189,10 +205,9 @@ router.patch('/:id', protect, async (req, res) => {
     if (content) quote.content = content;
     if (author !== undefined) quote.author = author;
     if (tags !== undefined) quote.tags = tags;
-    if (quote.status === 'approved') quote.status = 'pending';
     quote.updatedAt = Date.now();
     await quote.save();
-    res.json({ quote, message: quote.status === 'pending' ? '已更新，重新進入審核' : '已更新' });
+    res.json({ quote, message: '已更新' });
   } catch (err) { res.status(500).json({ message: '伺服器錯誤' }); }
 });
 
