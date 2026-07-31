@@ -36,11 +36,15 @@ const quoteSchema = new mongoose.Schema({
   comments: [commentSchema],
   debateComments: [debateCommentSchema],
   bgColor: { type: String, default: '' },
+  // --- fields for offline sync ---
+  deleted: { type: Boolean, default: false }, // tombstone flag
+  clientId: { type: String }, // optional: client's local id to correlate created items
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
 
 quoteSchema.index({ tags: 1, status: 1 });
 quoteSchema.index({ createdAt: -1 });
+quoteSchema.index({ updatedAt: 1 });
 
 module.exports = mongoose.model('Quote', quoteSchema);
